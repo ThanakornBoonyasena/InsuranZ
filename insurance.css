@@ -1,0 +1,13 @@
+.row{margin-bottom:10px;overflow:hidden;transition:border-color .2s,box-shadow .2s}.row:hover,.row.open{border-color:#5a545c}
+.row-head{display:grid;grid-template-columns:90px 1fr 130px auto;align-items:center;gap:12px;padding:10px 14px;cursor:pointer}
+.row-head:hover{background:color-mix(in srgb,var(--brand) 5%,transparent)}
+.btns{display:flex;gap:6px}
+.detail{display:none;padding:12px 14px 14px;border-top:1px solid var(--line);grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px 20px}
+.row.open .detail{display:grid}
+.detail b{display:block;font-size:12px;color:var(--muted);font-weight:500}
+.badge{font-size:12px;padding:1px 8px;border-radius:3px;border:1px solid currentColor}
+.s-ok{color:var(--ok)}.s-bad{color:var(--bad)}.s-warn{color:var(--warn)}
+.overlay{position:fixed;inset:0;background:rgba(0,0,0,.5);display:none;place-items:center;z-index:20;padding:16px}
+.overlay.show{display:grid}
+.modal{width:100%;max-width:460px;padding:20px;max-height:90vh;overflow:auto}
+@media(max-width:640px){.row-head{grid-template-columns:1fr auto}.row-head>:nth-child(3){display:none}}

@@ -1,0 +1,2 @@
+.list-item{padding:12px 16px;display:flex;justify-content:space-between;gap:12px;border-bottom:1px solid var(--line)}
+.list-item:last-child{border:0}
