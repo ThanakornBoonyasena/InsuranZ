@@ -13,7 +13,7 @@ async function insurancePage(){
     return `<div class="card row ${openId===i.insurance_id?"open":""}">
       <div class="row-head" onclick="toggle(${i.insurance_id})">
         <div><b>#${i.insurance_id}</b></div>
-        <div>${esc(i.type||"—")}</div>
+        <div>${esc(i.type||"-")}</div>
         <div class="muted">${fmt(i.sign_date)}</div>
         <div class="btns" onclick="event.stopPropagation()">
           <button class="btn ok" onclick="setStatus(${i.insurance_id},'ACCEPT')">Approve</button>
@@ -23,10 +23,10 @@ async function insurancePage(){
       </div>
       <div class="detail">
         <div><b>Status</b>${conditionBadge(condition)}</div>
-        <div><b>Type</b>${esc(i.type||"—")}</div>
+        <div><b>Type</b>${esc(i.type||"-")}</div>
         <div><b>Payment</b>${Number(i.payment_amount||0).toLocaleString()} per payment</div>
         <div><b>Insurance condition</b>${esc(conditionLabel(condition))}</div>
-        <div style="grid-column:1/-1"><b>Additional detail</b>${esc(i.additional_detail)||"—"}</div>
+        <div style="grid-column:1/-1"><b>Additional detail</b>${esc(i.additional_detail)||"-"}</div>
       </div>
     </div>`;
   }).join("");
@@ -72,7 +72,7 @@ function showInsuranceError(error){
 }
 
 async function render(){
-  $("#main").innerHTML="<h1>Insurance</h1><div class=\"card\">Loading insurance records…</div>";
+  $("#main").innerHTML="<h1>Insurance</h1><div class=\"card\">Loading insurance records...</div>";
   try{
     $("#main").innerHTML=await insurancePage();
   }catch(error){
