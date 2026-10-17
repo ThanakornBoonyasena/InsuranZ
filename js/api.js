@@ -1,5 +1,15 @@
 // Mock data layer saved in localStorage. Replace the api functions with fetch('/api/...') calls for the real DB.
 const KEY="insuranz_db_v2";
+const API_BASE=window.API_BASE_URL||"http://localhost:3000/api/v1";
+async function requestBackend(path,options={}){
+  const response=await fetch(`${API_BASE}${path}`,{
+    ...options,
+    headers:{"Content-Type":"application/json",...(options.headers||{})}
+  });
+  const payload=await response.json().catch(()=>({}));
+  if(!response.ok)throw new Error(payload.error||payload.message||`Request failed (${response.status})`);
+  return payload;
+}
 const copy=o=>JSON.parse(JSON.stringify(o));
 const DEFAULTS = {
   customers: [
@@ -42,6 +52,9 @@ const persist=()=>{try{localStorage.setItem(KEY,JSON.stringify(db))}catch{}};
 function reloadDb(){try{const d=JSON.parse(localStorage.getItem(KEY));if(d)db=d}catch{}}
 persist();
 const api={
+  async insuranceRecords(){const result=await requestBackend("/insurance/insurance-info");return result.data||[]},
+  async setInsuranceCondition(id,condition){return requestBackend("/insurance/approve",{method:"POST",body:JSON.stringify({insurance_id:id,insurance_condition:condition})})},
+  async editInsurance(id,detail){return requestBackend("/insurance/edit",{method:"POST",body:JSON.stringify({insurance_id:id,additional_detail:detail})})},
   async insurances(){return db.insurances.map(i=>({...i,customer:db.customers.find(c=>c.customer_id===i.customer_id),package:db.packages.find(p=>p.package_id===i.package_id)}))},
   async update(id,patch){Object.assign(db.insurances.find(i=>i.insurance_id===id),patch);persist()},
   async commissionTable(){return db.commissionTable?copy(db.commissionTable):null},
