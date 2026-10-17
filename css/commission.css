@@ -10,5 +10,3 @@
 .ctable td,.ctable th:not(.corner),.ctable input{cursor:pointer}
 .setgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:4px 20px}#spanel input.mod{background:color-mix(in srgb,var(--ok) 28%,transparent)}
 .cgrid{display:inline-grid;grid-template-columns:auto 44px;grid-template-rows:auto 38px;gap:6px}.cgrid .ctable{margin:0}
-.add{background:var(--bg);border:1px dashed var(--ok);color:var(--ok);border-radius:3px;padding:0;font-size:18px}
-.add:hover{background:color-mix(in srgb,var(--ok) 14%,transparent);border-style:solid}

@@ -13,11 +13,27 @@ button{font:inherit;cursor:pointer}
 main{max-width:980px;margin:0 auto;padding:24px 20px}
 h1{font-size:22px;margin:0 0 16px;letter-spacing:.02em}
 .card{background:var(--card);border:1px solid var(--line);border-radius:4px}
+.row{margin-bottom:10px;overflow:hidden;transition:border-color .2s,box-shadow .2s}.row:hover,.row.open{border-color:#5a545c}
+.row-head{display:grid;grid-template-columns:90px 1fr 130px auto;align-items:center;gap:12px;padding:10px 14px;cursor:pointer}
+.row-head:hover{background:color-mix(in srgb,var(--brand) 5%,transparent)}
 .muted{color:var(--muted);font-size:13px}
+.btns{display:flex;gap:6px}
 .btn{border:1px solid var(--line);background:var(--card);color:var(--text);border-radius:3px;padding:4px 12px;font-size:13px}
 .btn:hover{border-color:var(--text)}.btn.ok{background:var(--ok);border-color:var(--ok);color:#1A181B}.btn.bad{background:var(--bad);border-color:var(--bad);color:#FFF4E4}.btn.pri{background:var(--brand);border-color:var(--brand);color:#FFF4E4}
+.detail{display:none;padding:12px 14px 14px;border-top:1px solid var(--line);grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px 20px}
+.row.open .detail{display:grid}
+.detail b{display:block;font-size:12px;color:var(--muted);font-weight:500}
+.badge{font-size:12px;padding:1px 8px;border-radius:3px;border:1px solid currentColor}
+.s-ok{color:var(--ok)}.s-bad{color:var(--bad)}.s-warn{color:var(--warn)}
+.overlay{position:fixed;inset:0;background:rgba(0,0,0,.5);display:none;place-items:center;z-index:20;padding:16px}
+.overlay.show{display:grid}
+.modal{width:100%;max-width:460px;padding:20px;max-height:90vh;overflow:auto}
 label{display:block;font-size:13px;color:var(--muted);margin:10px 0 4px}
 input,select,textarea{width:100%;padding:8px 10px;border:1px solid var(--line);border-radius:3px;background:var(--bg);color:var(--text);font:inherit}
 .actions{display:flex;justify-content:flex-end;gap:8px;margin-top:16px}
 .pad{padding:16px}
-@media(max-width:640px){.nav{gap:8px;padding:8px 10px}.profile span.n{display:none}}
+.add{background:var(--bg);border:1px dashed var(--ok);color:var(--ok);border-radius:3px;padding:0;font-size:18px}
+.add:hover{background:color-mix(in srgb,var(--ok) 14%,transparent);border-style:solid}
+.calhead{display:flex;align-items:center;gap:12px;margin-bottom:14px}.calhead h1{margin:0}
+.rep{border-left:3px solid var(--line);padding:4px 10px;margin-bottom:8px;font-size:13px}
+@media(max-width:640px){.nav{gap:8px;padding:8px 10px}.profile span.n{display:none}.row-head{grid-template-columns:1fr auto}.row-head>:nth-child(3){display:none}}

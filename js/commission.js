@@ -58,6 +58,5 @@ async function commissionPage(){
   const panel=`<div class="card pad" id="spanel" style="margin-bottom:24px"><div class="setgrid"><div><label>Current target money (฿)</label><input data-f="target" inputmode="decimal" value="${esc(setCur.target)}" oninput="setInput(this)"></div><div><label>Commission period</label><input data-f="period" placeholder="e.g. Monthly" value="${esc(setCur.period)}" oninput="setInput(this)"></div></div><div class="actions" id="sactions" style="margin-top:12px"></div></div>`;
   return `<h1>Commission</h1>${panel}<div style="width:fit-content;max-width:100%"><div style="overflow-x:auto" id="ctable">${tableHTML()}</div><div class="actions" style="justify-content:flex-end" id="cactions">${actionsHTML()}</div></div>`;
 }
-
 mountNav("commission");
 (async()=>{$("#main").innerHTML=await commissionPage()})();

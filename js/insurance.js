@@ -1,5 +1,3 @@
-let openId=null;
-const statusBadge=s=>s===true?'<span class="badge s-ok">Approved</span>':s===false?'<span class="badge s-bad">Denied</span>':'<span class="badge s-warn">Pending</span>';
 async function insurancePage(){
   const list=await api.insurances();
   const rows=list.map(i=>`<div class="card row ${openId===i.insurance_id?"open":""}">
@@ -21,11 +19,10 @@ async function insurancePage(){
       <div><b>Customer age</b>${i.customer.customer_age}</div>
       <div><b>Health info</b>${esc(i.customer.health_info)}</div>
       <div><b>Customer since</b>${fmt(i.customer.create_timestamp)}</div>
-      <div style="grid-column:1/-1"><b>Condition</b>${esc(i.additional_detail)||"—"}</div>
+      <div style="grid-column:1/-1"><b>Condition</b>${esc(i.additional_detail)||"—"}</div>${pkgHTML(i)}
     </div></div>`).join("");
   return `<h1>Insurance</h1>${rows}`;
 }
-function toggle(id){openId=openId===id?null:id;render()}
 async function setStatus(id,v){await api.update(id,{status:v});render()}
 async function editForm(id){
   const i=(await api.insurances()).find(x=>x.insurance_id===id);
@@ -38,8 +35,5 @@ async function saveEdit(id){
   await api.update(id,{additional_detail:$("#f-det").value});
   closeModal();render();
 }
-function closeModal(){$("#overlay").classList.remove("show")}
-$("#overlay").addEventListener("click",e=>{if(e.target.id==="overlay")closeModal()});
-
-async function render(){$("#main").innerHTML=await insurancePage()}
+async function render(){persist();$("#main").innerHTML=await insurancePage()}
 mountNav("insurance");render();
