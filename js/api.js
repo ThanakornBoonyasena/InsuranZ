@@ -52,8 +52,15 @@ const persist=()=>{try{localStorage.setItem(KEY,JSON.stringify(db))}catch{}};
 function reloadDb(){try{const d=JSON.parse(localStorage.getItem(KEY));if(d)db=d}catch{}}
 persist();
 const api={
-  async insuranceRecords(){const result=await requestBackend("/insurance/insurance-info");return result.data||[]},
-  async setInsuranceCondition(id,condition){return requestBackend("/insurance/approve",{method:"POST",body:JSON.stringify({insurance_id:id,insurance_condition:condition})})},
+  async insuranceRecords(){
+    const result=await requestBackend("/insurance/insurance-info");
+    return (result.data||[]).map(record=>{
+      const condition=record.insurance_condition||record.status||"";
+      return {...record,status:condition==="ACCEPT"?true:condition==="REJECT"?false:null,sent:record.sent===true};
+    });
+  },
+  async setInsuranceCondition(id,approved){return requestBackend("/insurance/approve",{method:"POST",body:JSON.stringify({insurance_id:id,insurance_condition:approved?"ACCEPT":"REJECT"})})},
+  async sendInsurance(id){return requestBackend("/insurance/send",{method:"POST",body:JSON.stringify({insurance_id:id})})},
   async editInsurance(id,detail){return requestBackend("/insurance/edit",{method:"POST",body:JSON.stringify({insurance_id:id,additional_detail:detail})})},
   async insurances(){return db.insurances.map(i=>({...i,customer:db.customers.find(c=>c.customer_id===i.customer_id),package:db.packages.find(p=>p.package_id===i.package_id)}))},
   async update(id,patch){Object.assign(db.insurances.find(i=>i.insurance_id===id),patch);persist()},
