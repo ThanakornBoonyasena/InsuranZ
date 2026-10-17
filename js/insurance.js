@@ -8,7 +8,7 @@ async function insurancePage(){
       <div class="btns" onclick="event.stopPropagation()">
         <button class="btn ok" onclick="setStatus(${i.insurance_id},true)">Approve</button>
         <button class="btn bad" onclick="setStatus(${i.insurance_id},false)">Deny</button>
-        <button class="btn" onclick="editForm(${i.insurance_id})">Edit</button>
+        <button class="btn" onclick="editForm(${i.insurance_id})">Edit</button>${i.status===true?(i.sent?'<span class="s-ok" style="font-size:13px;padding:0 8px">Sent</span>':`<button class="btn pri" onclick="sendIns(${i.insurance_id})">Send</button>`):""}
       </div>
     </div>
     <div class="detail">
@@ -23,7 +23,8 @@ async function insurancePage(){
     </div></div>`).join("");
   return `<h1>Insurance</h1>${rows}`;
 }
-async function setStatus(id,v){await api.update(id,{status:v});render()}
+async function setStatus(id,v){await api.update(id,v?{status:true}:{status:false,sent:false});render()}
+async function sendIns(id){await api.update(id,{sent:true});render()}
 async function editForm(id){
   const i=(await api.insurances()).find(x=>x.insurance_id===id);
   $("#modal").innerHTML=`<h1>Edit insurance #${id}</h1>
