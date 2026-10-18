@@ -1,4 +1,4 @@
-// Mock data layer saved in localStorage. Replace the api functions with fetch('/api/...') calls for the real DB.
+// Insurance and commission tables use the backend API; remaining demo sections use localStorage.
 const KEY="insuranz_db_v2";
 const API_BASE=window.API_BASE_URL||"http://localhost:3000/api/v1";
 async function requestBackend(path,options={}){
@@ -37,8 +37,6 @@ const DEFAULTS = {
     {id:1,customer_name:"Somchai Prasert",location:"Central World, Bangkok",appointment_date:"2026-10-19T10:00",packages:["Family Health Plus"],reports:[{date:"2026-10-19T11:30",report_note:"Interested in adding family members. Will decide next week.",is_successful:true}]},
     {id:2,customer_name:"Nattaya Wong",location:"Office, Nonthaburi",appointment_date:"2026-10-22T14:00",packages:["Life Secure 20","Auto Care"],reports:[]}
   ],
-  commissionSettings:{target:"3000",period:"Monthly"},
-  commissionTable:{cols:[100,120],rows:[70,100],cells:[[5,8],[10,15]]},
   notifications: [
     {text:"Insurance #1001 is waiting for approval.",time:"Today, 09:12"},
     {text:"Commission for #1002 was paid out.",time:"Yesterday"}
@@ -64,9 +62,61 @@ const api={
   async editInsurance(id,detail){return requestBackend("/insurance/edit",{method:"POST",body:JSON.stringify({insurance_id:id,additional_detail:detail})})},
   async insurances(){return db.insurances.map(i=>({...i,customer:db.customers.find(c=>c.customer_id===i.customer_id),package:db.packages.find(p=>p.package_id===i.package_id)}))},
   async update(id,patch){Object.assign(db.insurances.find(i=>i.insurance_id===id),patch);persist()},
-  async commissionTable(){return db.commissionTable?copy(db.commissionTable):null},
-  async saveCommission(t){db.commissionTable=copy(t);persist()},
-  async commissionSettings(){return copy(db.commissionSettings)},
-  async saveSettings(s){db.commissionSettings=copy(s);persist()},
+  async commissionTable(){
+    const [result,settingsResult]=await Promise.all([
+      requestBackend("/commission/table"),
+      requestBackend("/commission/settings")
+    ]);
+    const cells=result.data||[];
+    const settings=settingsResult.data||{};
+    const columns=settings.columns||[];
+    const rows=settings.rows||[];
+    const columnCount=Math.max(columns.length,...cells.map(cell=>Number(cell.table_column)||0));
+    const rowCount=Math.max(rows.length,...cells.map(cell=>Number(cell.table_row)||0));
+    if(columnCount===0&&rowCount===0)return null;
+    const table={
+      cols:Array.from({length:columnCount},(_,i)=>String(columns[i]??"")),
+      rows:Array.from({length:rowCount},(_,i)=>String(rows[i]??"")),
+      cells:Array.from({length:rowCount},()=>Array(columnCount).fill(""))
+    };
+    for(const cell of cells){
+      const row=Number(cell.table_row)-1,column=Number(cell.table_column)-1;
+      if(row>=0&&row<rowCount&&column>=0&&column<columnCount)table.cells[row][column]=String(cell.value);
+    }
+    return table;
+  },
+  async saveCommission(t){
+    const data=[];
+    t.cells.forEach((row,i)=>row.forEach((value,j)=>{
+      if(value==="")return;
+      const commission=Number(value);
+      if(!Number.isInteger(commission))throw new Error("Commission values must be whole numbers");
+      data.push({table_column:j+1,table_row:i+1,value:commission});
+    }));
+    const result=await requestBackend("/commission/table",{method:"PUT",body:JSON.stringify({data})});
+    const settings=await requestBackend("/commission/settings");
+    await requestBackend("/commission/settings",{
+      method:"PUT",
+      body:JSON.stringify({
+        target:settings.data.target,
+        period:settings.data.period,
+        columns:t.cols,
+        rows:t.rows
+      })
+    });
+    return result;
+  },
+  async commissionSettings(){
+    const result=await requestBackend("/commission/settings");
+    return {
+      target:String(result.data?.target??""),
+      period:String(result.data?.period??""),
+      columns:result.data?.columns||[],
+      rows:result.data?.rows||[]
+    };
+  },
+  async saveSettings(s){
+    return requestBackend("/commission/settings",{method:"PUT",body:JSON.stringify({target:String(s.target),period:String(s.period)})});
+  },
   async notifications(){return copy(db.notifications)}
 };
