@@ -2,6 +2,16 @@
 const $=s=>document.querySelector(s);
 const esc=s=>String(s??"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
 const fmt=d=>new Date(d).toLocaleDateString("en-GB",{day:"2-digit",month:"short",year:"numeric"});
+const ageFromDOB=d=>{
+  if(!d)return null;
+  const match=String(d).match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if(!match)return null;
+  const [,year,month,day]=match.map(Number);
+  const now=new Date();
+  let age=now.getFullYear()-year;
+  if(now.getMonth()+1<month||(now.getMonth()+1===month&&now.getDate()<day))age--;
+  return age>=0?age:null;
+};
 const store={get:k=>{try{return sessionStorage.getItem(k)}catch{return null}},set:(k,v)=>{try{sessionStorage.setItem(k,v)}catch{}},del:k=>{try{sessionStorage.removeItem(k)}catch{}}};
 const role=store.get("role");
 const statusBadge=s=>s===true?'<span class="badge s-ok">Approved</span>':s===false?'<span class="badge s-bad">Denied</span>':'<span class="badge s-warn">Pending</span>';

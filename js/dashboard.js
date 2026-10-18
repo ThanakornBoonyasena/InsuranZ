@@ -1,22 +1,69 @@
 async function dashboardPage(){
-  const mine=(await api.insurances()).filter(i=>i.broker===db.brokerProfile.id);
-  const s=await api.commissionSettings(),t=await api.commissionTable();
-  const target=+s.target||0,pts=db.brokerProfile.points;
-  const ap=mine.filter(i=>i.status===true),de=mine.filter(i=>i.status===false),pe=mine.filter(i=>i.status===null);
-  const sum=a=>a.reduce((x,i)=>x+i.payment_amount,0);
-  const pct=target?sum(ap)/target*100:0;
-  let est=0;
-  if(t){const cs=t.cols.map(x=>x===""?NaN:+x),rs=t.rows.map(x=>x===""?NaN:+x);let cj=-1,ri=-1;
-    cs.forEach((c,j)=>{if(c<=pct&&(cj<0||c>cs[cj]))cj=j});rs.forEach((r,i)=>{if(r<=pts&&(ri<0||r>rs[ri]))ri=i});
-    if(cj>=0&&ri>=0)est=+t.cells[ri][cj]||0}
-  const list=mine.map(i=>`<div class="card row ${openId===i.insurance_id?"open":""}"><div class="row-head" onclick="toggle(${i.insurance_id})"><div><b>#${i.insurance_id}</b></div><div>${esc(i.customer.customer_name)}</div><div class="muted">${fmt(i.sign_date)}</div><div>${statusBadge(i.status)}</div></div><div class="detail"><div><b>Type</b>${esc(i.type)}</div><div><b>Selling case</b>${esc(i.selling_case)}</div><div><b>Payment</b>${i.payment_amount} every ${i.payment_interval_months} month(s)</div><div><b>Customer age</b>${i.customer.customer_age}</div><div><b>Health info</b>${esc(i.customer.health_info)}</div><div><b>Customer since</b>${fmt(i.customer.create_timestamp)}</div><div style="grid-column:1/-1"><b>Condition</b>${esc(i.additional_detail)||"—"}</div>${pkgHTML(i)}</div></div>`).join("");
+  const records=await api.insuranceRecords();
+  const settings=await api.commissionSettings();
+  const table=await api.commissionTable();
+  const target=Number(settings.target)||0;
+  const points=Number(db.brokerProfile.points)||0;
+  const approved=records.filter(record=>record.status===true);
+  const denied=records.filter(record=>record.status===false);
+  const pending=records.filter(record=>record.status===null);
+  const approvedPremium=approved.reduce((sum,record)=>sum+Number(record.payment_amount||0),0);
+  const percent=target?approvedPremium/target*100:0;
+
+  let estimatedCommission=0;
+  if(table){
+    const columns=table.cols.map(value=>value===""?NaN:Number(value));
+    const rows=table.rows.map(value=>value===""?NaN:Number(value));
+    let columnIndex=-1,rowIndex=-1;
+    columns.forEach((value,index)=>{
+      if(value<=percent&&(columnIndex<0||value>columns[columnIndex]))columnIndex=index;
+    });
+    rows.forEach((value,index)=>{
+      if(value<=points&&(rowIndex<0||value>rows[rowIndex]))rowIndex=index;
+    });
+    if(columnIndex>=0&&rowIndex>=0){
+      estimatedCommission=Number(table.cells[rowIndex]?.[columnIndex])||0;
+    }
+  }
+
+  const list=records.map(record=>{
+    const customer=record.customer||{};
+    return `<div class="card row ${openId===record.insurance_id?"open":""}">
+      <div class="row-head" onclick="toggle(${record.insurance_id})">
+        <div><b>#${record.insurance_id}</b></div>
+        <div>${esc(customer.customer_name||"-")}</div>
+        <div class="muted">${fmt(record.sign_date)}</div>
+        <div>${statusBadge(record.status)}</div>
+      </div>
+      <div class="detail">
+        <div><b>Type</b>${esc(record.type||"-")}</div>
+        <div><b>Payment</b>${Number(record.payment_amount||0).toLocaleString()} every ${record.payment_interval_month||"-"} month(s)</div>
+        <div><b>Customer telephone</b>${esc(customer.telephone_number||"-")}</div>
+        <div><b>Customer age</b>${customer.customer_age??"-"}</div>
+        <div><b>Health condition</b>${esc(customer.health_info||"-")}</div>
+        ${customer.create_timestamp?`<div><b>Customer since</b>${fmt(customer.create_timestamp)}</div>`:""}
+        <div style="grid-column:1/-1"><b>Additional detail</b>${esc(record.additional_detail||"-")}</div>
+      </div>
+    </div>`;
+  }).join("");
+
   return `<h1>Dashboard</h1><div class="stats">
-    <div class="card stat"><div class="muted"><span class="live"></span>Sales vs target (live)</div><div class="big">${pct.toFixed(1)}%</div><div class="bar" style="background:${pct<100?"var(--bad)":"var(--ok)"}"><i style="width:${Math.min(pct,100)}%"></i></div><div class="muted" style="margin-top:8px">฿${sum(ap)} of ฿${target} target</div></div>
-    <div class="card stat"><div class="muted">Estimated commission</div><div class="big">฿${est}</div><div class="muted" style="margin-top:8px">At ${pts} points and ${pct.toFixed(0)}% of target</div></div>
-    <div class="card stat"><div class="muted">Cumulative points</div><div class="big">${pts}</div><div class="muted" style="margin-top:8px">Total points earned so far</div></div>
-    <div class="card stat"><div class="muted">Insurance stats</div><div class="mini"><div><b>${mine.length}</b><span class="muted">Sold</span></div><div><b class="s-warn">${pe.length}</b><span class="muted">Pending</span></div><div><b class="s-ok">${ap.length}</b><span class="muted">Approved</span></div><div><b class="s-bad">${de.length}</b><span class="muted">Denied</span></div></div></div>
-  </div><div class="h2">My insurance sales</div>${list||'<p class="muted">No sales yet.</p>'}`;
+    <div class="card stat"><div class="muted"><span class="live"></span>Approved premium vs target</div><div class="big">${percent.toFixed(1)}%</div><div class="bar" style="background:${percent<100?"var(--bad)":"var(--ok)"}"><i style="width:${Math.min(percent,100)}%"></i></div><div class="muted" style="margin-top:8px">฿${approvedPremium.toLocaleString()} of ฿${target.toLocaleString()} target</div></div>
+    <div class="card stat"><div class="muted">Estimated commission</div><div class="big">฿${estimatedCommission.toLocaleString()}</div><div class="muted" style="margin-top:8px">At ${points} points and ${percent.toFixed(0)}% of target</div></div>
+    <div class="card stat"><div class="muted">Cumulative points</div><div class="big">${points}</div><div class="muted" style="margin-top:8px">Total points earned so far</div></div>
+    <div class="card stat"><div class="muted">Insurance stats</div><div class="mini"><div><b>${records.length}</b><span class="muted">Records</span></div><div><b class="s-warn">${pending.length}</b><span class="muted">Pending</span></div><div><b class="s-ok">${approved.length}</b><span class="muted">Approved</span></div><div><b class="s-bad">${denied.length}</b><span class="muted">Denied</span></div></div></div>
+  </div><div class="h2">Insurance records</div>${list||'<p class="muted">No insurance records yet.</p>'}`;
 }
-async function render(){persist();$("#main").innerHTML=await dashboardPage()}
-mountNav("dashboard");render();
+
+async function render(){
+  $("#main").innerHTML='<h1>Dashboard</h1><div class="card pad">Loading dashboard...</div>';
+  try{
+    $("#main").innerHTML=await dashboardPage();
+  }catch(error){
+    $("#main").innerHTML=`<h1>Dashboard</h1><div class="card pad">${esc(error.message||"Unable to load dashboard")}</div>`;
+  }
+}
+
+mountNav("dashboard");
+render();
 setInterval(()=>{reloadDb();render()},5000);

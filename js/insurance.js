@@ -22,6 +22,7 @@ async function insurancePage(){
         <div><b>Type</b>${esc(i.type||"-")}</div>
         <div><b>Selling case</b>${esc(i.selling_case||"-")}</div>
         <div><b>Payment</b>${Number(i.payment_amount||0).toLocaleString()} every ${i.payment_interval_month||"-"} month(s)</div>
+        <div><b>Customer telephone</b>${esc(customer.telephone_number||"-")}</div>
         <div><b>Customer age</b>${customer.customer_age??i.customer_age??"-"}</div>
         <div><b>Health info</b>${esc(customer.health_info||i.health_info||"-")}</div>
         ${customer.create_timestamp?`<div><b>Customer since</b>${fmt(customer.create_timestamp)}</div>`:""}
