@@ -15,7 +15,7 @@ function signOut(){store.del("role");location.href="login.html"}
 const LINKS={company:[["insurance","Insurance"],["commission","Commission"]],broker:[["sign-contract","Sign Contract"],["dashboard","Dashboard"],["customer","Customer"],["report","Report"],["appointment","Appointment"]]};
 async function mountNav(page){
   if(!role){location.href="login.html";return}
-  const n=(await api.notifications()).length;
+  let n=0;try{n=(await api.notifications()).length}catch{}
   const links=(LINKS[role]||[]).map(([h,t])=>`<a href="${h}.html" class="${page===h?"active":""}">${t}</a>`).join("");
   $("#nav").innerHTML=`<header class="nav"><button class="icon-btn" title="Notifications" onclick="location.href='notify.html'">✉️<span class="dot">${n}</span></button><nav class="links">${links}</nav><button class="profile" onclick="location.href='profile.html'"><span class="avatar">SW</span><span class="n">Profile</span></button></header>`;
 }

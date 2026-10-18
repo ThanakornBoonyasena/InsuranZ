@@ -1,4 +1,4 @@
-// Insurance and commission tables use the backend API; remaining demo sections use localStorage.
+// Insurance, commission, and report creation use the backend API; remaining demo sections use localStorage.
 const KEY="insuranz_db_v2";
 const API_BASE=window.API_BASE_URL||"http://localhost:3000/api/v1";
 async function requestBackend(path,options={}){
@@ -118,5 +118,18 @@ const api={
   async saveSettings(s){
     return requestBackend("/commission/settings",{method:"PUT",body:JSON.stringify({target:String(s.target),period:String(s.period)})});
   },
-  async notifications(){return copy(db.notifications)}
+  async reports(){
+    const result=await requestBackend("/reports");
+    return result.data||[];
+  },
+  async saveReport(report){
+    return requestBackend("/reports",{method:"POST",body:JSON.stringify({
+      appointment_fk:report.appointment_fk??report.appointment_id,
+      content:report.content??report.report_note
+    })});
+  },
+  async notifications(){
+    const result=await requestBackend("/notification");
+    return (result.data||[]).map(n=>({...n,text:n.content??n.text??"",time:n.created_at??n.time??""}));
+  }
 };

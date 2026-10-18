@@ -40,12 +40,25 @@ function tagKey(e,el){
 }
 
 function repsHTML(){return `<label>Reports</label>${ap.reports.map(r=>`<div class="rep"><span class="muted">${fmt(r.date)}</span> ${okBadge(r)}<br>${esc(r.report_note)}</div>`).join("")||'<p class="muted">No reports yet.</p>'}<div id="repnew"><button class="add" style="width:100%;height:34px" onclick="newRep()">+</button></div>`}
-function newRep(){$("#repnew").innerHTML=`<textarea id="rnote" rows="3" placeholder="Write the report..."></textarea><label style="display:flex;gap:6px;align-items:center"><input id="rok" type="checkbox" style="width:auto"> Successful</label><div class="actions"><button class="btn ok" onclick="saveRep()">Save report</button></div>`}
-function saveRep(){
-  const n=$("#rnote").value.trim();if(!n)return;
-  const r={date:new Date().toISOString().slice(0,16),report_note:n,is_successful:$("#rok").checked};
-  db.appointments.find(a=>a.id===ap.id).reports.push(jc(r));ap.reports.push(r);
-  apSaved=JSON.stringify({...JSON.parse(apSaved),reports:ap.reports});persist();drawAppt();
+function newRep(){$("#repnew").innerHTML=`<textarea id="rnote" rows="3" placeholder="Write the report..."></textarea><label style="display:flex;gap:6px;align-items:center"><input id="rok" type="checkbox" style="width:auto"> Successful</label><div class="actions"><button class="btn ok" id="saverep" onclick="saveRep()">Save report</button></div>`}
+async function saveRep(){
+  const note=$("#rnote").value.trim();if(!note)return;
+  const button=$("#saverep");if(button.disabled)return;
+  button.disabled=true;button.textContent="Saving…";
+  const report={appointment_id:Number(ap.id),customer_name:ap.customer_name,report_note:note,scheduled_date_time:ap.appointment_date,is_successful:$("#rok").checked};
+  try{
+    await api.saveReport(report);
+    const savedReport={date:new Date().toISOString().slice(0,16),report_note:note,is_successful:report.is_successful,scheduled_date_time:ap.appointment_date};
+    const appointment=db.appointments.find(a=>a.id===ap.id);
+    if(appointment)appointment.reports.push(jc(savedReport));
+    ap.reports.push(savedReport);
+    apSaved=JSON.stringify({...JSON.parse(apSaved),reports:ap.reports});
+    persist();drawAppt();
+    alert("Report saved. The backend also created the broker notification.");
+  }catch(error){
+    button.disabled=false;button.textContent="Save report";
+    alert(error.message||"Unable to save report");
+  }
 }
 function saveAppt(){
   if(!ap.customer_name||!ap.appointment_date)return;
