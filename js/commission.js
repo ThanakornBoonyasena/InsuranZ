@@ -7,7 +7,7 @@ const cv=(k,i,j)=>k==="c"?cur.cols[i]:k==="r"?cur.rows[i]:cur.cells[i][j];
 const mod=(k,i,j)=>{const s=sv(k,i,j);return s===undefined?cv(k,i,j)!=="":s!==cv(k,i,j)};
 const dirty=()=>cur.cols.some((_,j)=>mod("c",j))||cur.rows.some((_,i)=>mod("r",i))||cur.cells.some((r,i)=>r.some((_,j)=>mod("x",i,j)))||cur.rows.length!==saved.rows.length||cur.cols.length!==saved.cols.length;
 function tableHTML(){
-  const inp=(k,i,j,ph)=>`<input data-k="${k}" data-i="${i}" data-j="${j??""}" placeholder="${ph}" inputmode="decimal" value="${esc(k==="c"&&cv(k,i,j)!==""?cv(k,i,j)+"%":cv(k,i,j))}" ${k==="c"?'onfocus="colFocus(this)" onblur="colBlur(this)"':""} class="${mod(k,i,j)?"mod":""}" oninput="cellInput(this)">`;
+  const inp=(k,i,j,ph)=>`<input data-k="${k}" data-i="${i}" data-j="${j??""}" placeholder="${ph}" inputmode="${k==="r"?"numeric":"decimal"}" value="${esc(k==="c"&&cv(k,i,j)!==""?cv(k,i,j)+"%":cv(k,i,j))}" ${k==="c"?'onfocus="colFocus(this)" onblur="colBlur(this)"':""} class="${mod(k,i,j)?"mod":""}" oninput="cellInput(this)">`;
   const head=cur.cols.map((_,j)=>`<th><div class="axis-cell">${inp("c",j,null,"%")}<button class="axis-remove" title="Delete column" onclick="removeCol(${j})">×</button></div></th>`).join("");
   const body=cur.rows.map((_,i)=>`<tr><th><div class="axis-cell">${inp("r",i,null,"pts")}<button class="axis-remove" title="Delete row" onclick="removeRow(${i})">×</button></div></th>${cur.cols.map((_,j)=>`<td>${inp("x",i,j,"Commission")}</td>`).join("")}</tr>`).join("");
   return `<div class="cgrid"><table class="ctable"><tr><th class="corner">Commission Table</th>${head}</tr>${body}</table><button class="add addcol" title="Add column" onclick="addCol()">+</button><button class="add addrow" title="Add row" onclick="addRow()">+</button></div>`;
@@ -19,7 +19,7 @@ function cancelComm(){cur=clone(saved);drawComm()}
 const drawComm=()=>{$("#ctable").innerHTML=tableHTML();$("#cactions").innerHTML=actionsHTML()};
 function cellInput(el){
   const {k,i,j}=el.dataset;
-  el.value=el.value.replace(k==="x"?/[^0-9]/g:/[^0-9.%]/g,"");
+  el.value=el.value.replace(k==="x"||k==="r"?/[^0-9]/g:/[^0-9.%]/g,"");
   if(k==="c")cur.cols[i]=el.value.replace(/%/g,"");else if(k==="r")cur.rows[i]=el.value;else cur.cells[i][j]=el.value;
   el.classList.toggle("mod",mod(k,i,j));
   $("#cactions").innerHTML=actionsHTML();
@@ -46,7 +46,7 @@ function addCol(){cur.cols.push("");cur.cells.forEach(r=>r.push(""));drawComm()}
 function addRow(){cur.rows.push("");cur.cells.push(cur.cols.map(()=>""));drawComm()}
 function removeCol(index){cur.cols.splice(index,1);cur.cells.forEach(row=>row.splice(index,1));drawComm()}
 function removeRow(index){cur.rows.splice(index,1);cur.cells.splice(index,1);drawComm()}
-async function saveComm(){try{const t=clone(cur);await api.saveCommission(t);saved=t;cur=clone(t);drawComm()}catch(error){alert(error.message||"Unable to save commission table")}}
+async function saveComm(){try{const t=clone(cur);const stored=await api.saveCommission(t);saved=stored?strT(stored):blank();cur=clone(saved);drawComm()}catch(error){alert(error.message||"Unable to save commission table")}}
 function clearComm(){cur.cols=cur.cols.map(()=>"");cur.rows=cur.rows.map(()=>"");cur.cells=cur.cells.map(r=>r.map(()=>""));drawComm()}
 function resetComm(){cur=blank();drawComm()}
 async function commissionPage(){
