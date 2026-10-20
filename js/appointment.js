@@ -7,7 +7,7 @@ async function appointmentPage(){
   const first=new Date(calY,calM,1),days=new Date(calY,calM+1,0).getDate();let cells="".padEnd(0);
   for(let k=0;k<first.getDay();k++)cells+="<div></div>";
   for(let d=1;d<=days;d++){const key=iso(calY,calM,d);
-    cells+=`<div class="day ${key===iso(now.getFullYear(),now.getMonth(),now.getDate())?"today":""}" onclick="apptForm(null,'${key}')"><div class="n">${d}</div>${db.appointments.filter(a=>a.appointment_date.slice(0,10)===key).map(a=>`<div class="appt" onclick="event.stopPropagation();apptForm(${a.id})"><b>${esc(a.customer_name)}</b><br>${a.appointment_date.slice(11,16)} · ${esc(a.location)}</div>`).join("")}</div>`}
+    cells+=`<div class="day ${key===iso(now.getFullYear(),now.getMonth(),now.getDate())?"today":""}" onclick="apptForm(null,'${key}')"><div class="n"><span>${d}</span><button class="day-plus" title="Add appointment" aria-label="Add appointment on ${key}" onclick="event.stopPropagation();apptForm(null,'${key}')">+</button></div>${db.appointments.filter(a=>a.appointment_date.slice(0,10)===key).map(a=>`<div class="appt" onclick="event.stopPropagation();apptForm(${a.id})"><b>${esc(a.customer_name)}</b><br>${a.appointment_date.slice(11,16)} · ${esc(a.location)}</div>`).join("")}</div>`}
   return `<div class="calhead"><button class="btn" onclick="calMove(-1)">‹</button><h1>${first.toLocaleString("en-GB",{month:"long",year:"numeric"})}</h1><button class="btn" onclick="calMove(1)">›</button></div><div class="cal">${["Sun","Mon","Tue","Wed","Thu","Fri","Sat"].map(d=>`<div class="dow">${d}</div>`).join("")}${cells}</div>`;
 }
 function apptForm(id,day){
@@ -20,7 +20,7 @@ function drawAppt(){
   $("#modal").innerHTML=`<h1>${ap.id===null?"New appointment":"Appointment"}</h1><div class="cols"><div>
   <label>Customer</label><select onchange="ap.customer_name=this.value;drawActs()">${db.customers.map(c=>`<option ${c.customer_name===ap.customer_name?"selected":""}>${esc(c.customer_name)}</option>`).join("")}</select>
   <label>Date and time</label><input type="datetime-local" value="${ap.appointment_date}" oninput="ap.appointment_date=this.value;drawActs()" onchange="ap.appointment_date=this.value;drawActs()">
-  <label>Packages to discuss</label><div class="muted" style="font-size:12px;margin-bottom:6px">Press enter or add a comma after each tag</div><div class="tagbox" id="tagbox" onclick="$('#tagin').focus()">${tagsInner()}</div><div class="tagfoot"><span class="muted" id="tagcount">${tagCount()}</span><button class="btn bad" onclick="clearTags()">Remove All</button></div><datalist id="pk">${db.packages.map(p=>`<option value="${esc(p.package_name)}">`).join("")}</datalist>
+  <label>Packages to discuss</label><div class="muted" style="font-size:12px;margin-bottom:6px">Choose one or more packages from the list.</div><div class="package-picker"><div class="tagbox" id="tagbox" onclick="$('#tagin').focus()">${tagsInner()}</div><div class="package-options" id="package-options" role="listbox" hidden></div></div><div class="tagfoot"><span class="muted" id="tagcount">${tagCount()}</span><button class="btn bad" onclick="clearTags()">Remove All</button></div>
   <label>Location</label><input value="${esc(ap.location)}" oninput="ap.location=this.value;drawActs()">
   </div><div>${ap.id===null?"":repsHTML()}</div></div><div class="actions" id="apacts"></div>`;
   drawActs();
@@ -30,13 +30,37 @@ function drawActs(){
   $("#apacts").innerHTML=ap.id===null?'<button class="btn" onclick="closeModal()">Cancel</button><button class="btn ok" onclick="saveAppt()">Make</button>':`${dirty?'<button class="btn ok" onclick="saveAppt()">Save</button>':""}<button class="btn bad" onclick="abortAppt()">Abort</button>`;
 }
 const tagCount=()=>`${ap.packages.length} package${ap.packages.length===1?"":"s"} added`;
-const tagsInner=()=>ap.packages.map((p,i)=>`<span class="chip">${esc(p)}<button title="Remove" onclick="event.stopPropagation();rmTag(${i})">×</button></span>`).join("")+`<input id="tagin" list="pk" onkeydown="tagKey(event,this)">`;
-function drawTags(){$("#tagbox").innerHTML=tagsInner();$("#tagcount").textContent=tagCount();$("#tagin").focus();drawActs()}
+const tagsInner=()=>ap.packages.map((p,i)=>`<span class="chip">${esc(p)}<button type="button" title="Remove ${esc(p)}" aria-label="Remove ${esc(p)}" onclick="event.stopPropagation();rmTag(${i})">×</button></span>`).join("")+`<input id="tagin" autocomplete="off" placeholder="Choose a package..." aria-label="Search packages to discuss" onfocus="showPackageOptions()" oninput="drawPackageOptions()" onblur="setTimeout(hidePackageOptions,150)" onkeydown="tagKey(event,this)">`;
+function drawTags(){$("#tagbox").innerHTML=tagsInner();$("#tagcount").textContent=tagCount();$("#tagin").focus();drawPackageOptions();drawActs()}
 function rmTag(i){ap.packages.splice(i,1);drawTags()}
 function clearTags(){ap.packages=[];drawTags()}
+function availablePackages(){
+  const query=$("#tagin")?.value.trim().toLocaleLowerCase()||"";
+  return db.packages.filter(p=>!ap.packages.includes(p.package_name)&&p.package_name.toLocaleLowerCase().includes(query));
+}
+function showPackageOptions(){const list=$("#package-options");if(list){drawPackageOptions();list.hidden=false}}
+function hidePackageOptions(){const list=$("#package-options");if(list&&document.activeElement?.id!=="tagin")list.hidden=true}
+function drawPackageOptions(){
+  const list=$("#package-options");
+  if(!list)return;
+  const options=availablePackages();
+  list.innerHTML=options.map(p=>`<button type="button" class="package-option" role="option" onclick="event.stopPropagation();selectPackage(${p.package_id})"><span>${esc(p.package_name)}</span><span class="muted">${p.point??0} pts</span></button>`).join("")||'<div class="package-empty">No matching packages</div>';
+  list.hidden=false;
+}
+function selectPackage(id){
+  const selected=db.packages.find(p=>p.package_id===id);
+  if(selected&&!ap.packages.includes(selected.package_name))ap.packages.push(selected.package_name);
+  drawTags();
+}
 function tagKey(e,el){
-  if(e.key==="Enter"||e.key===","){e.preventDefault();const v=el.value.replace(/,/g,"").trim();if(v&&!ap.packages.includes(v)){ap.packages.push(v);drawTags()}else el.value=""}
+  if(e.key==="Enter"||e.key===","){
+    e.preventDefault();
+    const matches=availablePackages();
+    const exact=matches.find(p=>p.package_name.toLocaleLowerCase()===el.value.trim().toLocaleLowerCase());
+    if(exact)selectPackage(exact.package_id);else if(matches.length)selectPackage(matches[0].package_id);
+  }
   else if(e.key==="Backspace"&&!el.value&&ap.packages.length){ap.packages.pop();drawTags()}
+  else if(e.key==="Escape")hidePackageOptions();
 }
 
 function repsHTML(){return `<label>Reports</label>${ap.reports.map(r=>`<div class="rep"><span class="muted">${fmt(r.date)}</span> ${okBadge(r)}<br>${esc(r.report_note)}</div>`).join("")||'<p class="muted">No reports yet.</p>'}<div id="repnew"><button class="add" style="width:100%;height:34px" onclick="newRep()">+</button></div>`}

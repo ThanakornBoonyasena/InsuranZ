@@ -3,17 +3,36 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>InsuranZ – Login</title>
+<title>InsuranZ | Sign in</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Oswald:wght@200..700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="../css/base.css">
 <link rel="stylesheet" href="../css/login.css">
 </head>
-<body>
-<div class="card login"><h1>InsuranZ</h1><p class="muted">Choose your role to continue</p>
-<div class="actions" style="justify-content:center"><button class="btn pri" onclick="signIn('company')">Company</button><button class="btn" onclick="signIn('broker')">Broker</button></div></div>
-<script src="../js/nav.js"></script>
-<script src="../js/login.js"></script>
+<body class="login-page">
+  <main class="login-wrap">
+    <section class="card login" aria-labelledby="login-title">
+      <div class="login-mark" aria-hidden="true">IZ</div>
+      <p class="login-kicker">INSURANZ PORTAL</p>
+      <h1 id="login-title">Welcome back</h1>
+      <p class="muted login-intro">Sign in with your account to continue.</p>
+
+      <form id="login-form" novalidate>
+        <label for="user-name">Username</label>
+        <input id="user-name" name="user_name" type="text" autocomplete="username" required autofocus>
+
+        <label for="password">Password</label>
+        <input id="password" name="password" type="password" autocomplete="current-password" required>
+
+        <p id="login-message" class="login-message" role="status" aria-live="polite"></p>
+        <button id="login-submit" class="btn pri login-submit" type="submit">Sign in</button>
+      </form>
+    </section>
+    <p class="login-footer">Authorized users only</p>
+  </main>
+  <script src="../js/api.js"></script>
+  <script src="../js/nav.js"></script>
+  <script src="../js/login.js"></script>
 </body>
 </html>

@@ -11,7 +11,7 @@ let openId=null;
 function toggle(id){openId=openId===id?null:id;render()}
 function closeModal(){$("#overlay").classList.remove("show");$("#modal").className="card modal"}
 if($("#overlay"))$("#overlay").addEventListener("click",e=>{if(e.target.id==="overlay")closeModal()});
-function signOut(){store.del("role");location.href="login.html"}
+function signOut(){store.del("role");store.del("user_id");store.del("user_name");location.href="login.html"}
 const LINKS={company:[["insurance","Insurance"],["commission","Commission"]],broker:[["sign-contract","Sign Contract"],["dashboard","Dashboard"],["customer","Customer"],["report","Report"],["appointment","Appointment"]]};
 async function mountNav(page){
   if(!role){location.href="login.html";return}

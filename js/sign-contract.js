@@ -6,6 +6,16 @@ const priceOf=p=>PRICING[p.package_id]||{rate:0.01,years:10};
 const baht=n=>"฿"+Number(n||0).toLocaleString();
 let CC={customers:[],packages:[]},cf=null;
 
+function ageFromDOB(value){
+  if(!value)return "";
+  const birth=new Date(value);
+  if(Number.isNaN(birth.getTime()))return "";
+  const today=new Date();
+  let age=today.getFullYear()-birth.getFullYear();
+  if(today.getMonth()<birth.getMonth()||(today.getMonth()===birth.getMonth()&&today.getDate()<birth.getDate()))age--;
+  return age>=0?age:"";
+}
+
 function calcContract(pkgs,sums){
   const items=pkgs.map(p=>{const {rate,years}=priceOf(p);const sum=+sums[p.package_id]||0;return {name:p.package_name,sum,yearly:Math.round(sum*rate),years}});
   const yearly=items.reduce((a,i)=>a+i.yearly,0),years=Math.max(0,...items.map(i=>i.years));
@@ -41,11 +51,11 @@ async function openContract(insId){
     CC={customers,packages};
     const i=insId?ins.find(x=>x.insurance_id===insId):null;
     let cid=i&&(i.customer_id??i.customer?.customer_id);
-    if(!cid&&i)cid=customers.find(c=>c.customer_name===(i.customer_name||i.customer?.customer_name))?.customer_id;
+    if((cid===undefined||cid===null||cid==="")&&i)cid=customers.find(c=>c.customer_name===(i.customer_name||i.customer?.customer_name))?.customer_id;
     if(i){
       // Existing contract: read-only summary + signature. Reads the contract data from the insurance record.
       const ex=i.contract||i;
-      cf={insId,customerId:cid||"",readonly:true,step:2,signed:false,
+      cf={insId,customerId:String(cid??""),readonly:true,step:2,signed:false,
         g:{name:"",age:"",job:"",address:"",relation:"",...(ex.guarantor||{})},
         pkgIds:ex.package_ids||(i.package_id?[i.package_id]:[]),
         sums:ex.sums||(ex.sum_assured&&i.package_id?{[i.package_id]:ex.sum_assured}:{})};
@@ -69,9 +79,9 @@ function formHTML(){
   const gf=[["name","Name"],["age","Age"],["job","Job"],["address","Address"],["relation","Relation"]];
   return `<h1>New contract</h1>
   <div class="sec"><h2>1. Customer</h2>
-    <select onchange="cf.customerId=+this.value">
+    <select onchange="cf.customerId=this.value">
       <option value="">Select customer…</option>
-      ${CC.customers.map(c=>`<option value="${c.customer_id}" ${c.customer_id==cf.customerId?"selected":""}>${esc(c.customer_name)}</option>`).join("")}
+      ${CC.customers.map(c=>`<option value="${esc(String(c.customer_id))}" ${String(c.customer_id)===String(cf.customerId)?"selected":""}>${esc(c.customer_name)}</option>`).join("")}
     </select></div>
   <div class="sec"><h2>2. Guarantor information</h2><div class="g2">
     ${gf.map(([k,l])=>`<div><label>${l}</label><input ${k==="age"?'inputmode="numeric"':""} value="${esc(cf.g[k])}" oninput="${k==="age"?"this.value=this.value.replace(/[^0-9]/g,'');":""}cf.g.${k}=this.value"></div>`).join("")}
@@ -93,16 +103,21 @@ function togglePkg(id,on){
 
 function contractNext(){
   const miss=[];
-  if(!cf.customerId)miss.push("customer");
+  if(!String(cf.customerId??"").trim())miss.push("customer");
   for(const k of ["name","age","job","address","relation"])if(!String(cf.g[k]).trim())miss.push("guarantor "+k);
   if(!cf.pkgIds.length)miss.push("a package");
   for(const p of CC.packages)if(cf.pkgIds.includes(p.package_id)&&!(+cf.sums[p.package_id]>0))miss.push("Sum Assured for "+p.package_name);
-  if(miss.length){$("#cerr").textContent="Please fill in: "+miss.join(", ")+".";return}
+  if(miss.length){
+    const error=$("#cerr");
+    error.textContent="Please complete: "+miss.join(", ")+".";
+    error.scrollIntoView({block:"nearest",behavior:"smooth"});
+    return;
+  }
   cf.step=2;cf.signed=false;drawContract();
 }
 
 function summaryHTML(){
-  const c=CC.customers.find(x=>x.customer_id==cf.customerId)||{};
+  const c=CC.customers.find(x=>String(x.customer_id)===String(cf.customerId))||{};
   const calc=calcContract(CC.packages.filter(p=>cf.pkgIds.includes(p.package_id)),cf.sums);
   const kv=(k,v,wide)=>`<div${wide?' style="grid-column:1/-1"':""}><b>${k}</b>${esc(v||"—")}</div>`;
   return `<h1>${cf.readonly?"Re-sign contract":"Contract summary"}</h1>
@@ -123,6 +138,7 @@ function summaryHTML(){
       <tr class="tot"><td>Total payable</td><td>${baht(calc.total)}</td></tr>
     </table></div>
   <div class="sec"><h2>Customer signature</h2>
+    <p class="muted">Draw your signature in the box to enable the Sign button.</p>
     <canvas id="sig" width="720" height="150"></canvas>
     <div class="actions" style="margin-top:6px"><button class="btn" onclick="clearSig()">Clear signature</button></div></div>
   <div class="actions" id="sumacts">${cf.readonly?'<button class="btn bad" onclick="askDiscard()">Discard</button><button class="btn" onclick="closeModal()">Cancel</button>':'<button class="btn" onclick="cf.step=1;drawContract()">Back</button>'}<button class="btn ok" id="signbtn" disabled onclick="signContract()">Sign</button></div>
@@ -158,7 +174,7 @@ function clearSig(){
 
 async function signContract(){
   if(!cf.signed)return;
-  const c=CC.customers.find(x=>x.customer_id==cf.customerId)||{};
+  const c=CC.customers.find(x=>String(x.customer_id)===String(cf.customerId))||{};
   const calc=calcContract(CC.packages.filter(p=>cf.pkgIds.includes(p.package_id)),cf.sums);
   try{
     await api.saveContract({
