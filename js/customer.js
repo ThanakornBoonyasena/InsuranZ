@@ -1,14 +1,22 @@
-let customerFilter={q:"",salary_min:"",salary_max:""};
+let crit={};
+let ageFilter=null;
+let bankFilter={q:"",salary_min:"",salary_max:""};
 let saCustomers=[];
 let bankMatches=[];
 
 async function customerPage(){
   const customers=await api.customerRecords();
   saCustomers=customers;
-  const list=customers.map(customer=>`<div class="card row ${openId==="c"+customer.customer_id?"open":""}">
+  const matches=ageFilter?customers.filter(customer=>{
+    const age=Number(customer.customer_age);
+    if(!Number.isFinite(age))return false;
+    const value=ageFilter.value;
+    return ageFilter.op==="<"?age<value:ageFilter.op===">"?age>value:age===value;
+  }):customers;
+  const list=matches.map(customer=>`<div class="card row ${openId==="c"+customer.customer_id?"open":""}">
     <div class="row-head" style="grid-template-columns:1.5fr 1fr 1fr" onclick="toggle('c${customer.customer_id}')">
       <div><b>${esc(customer.customer_name)}</b></div>
-      <div class="muted">Age ${ageFromDOB(customer.customer_dob)??"—"}</div>
+      <div class="muted">Age ${customer.customer_age??"—"}</div>
       <div class="muted">#${customer.customer_id}</div>
     </div>
     <div class="detail">
@@ -16,8 +24,7 @@ async function customerPage(){
       <div><b>Telephone number</b>${esc(customer.telephone_number||"-")}</div>
       <div><b>Email</b>${esc(customer.customer_email||"—")}</div>
       <div><b>Address</b>${esc(customer.customer_address||"—")}</div>
-      <div><b>Salary</b>${customer.salary!=null?`฿${Number(customer.salary).toLocaleString()}`:"—"}</div>
-      <div><b>Job description</b>${esc(customer.job_description||"—")}</div>
+      <div><b>Nationality</b>${esc(customer.customer_nationality||"—")}</div>
       <div><b>Gender</b>${esc(customer.customer_gender||"—")}</div>
       <div><b>Sex</b>${esc(customer.customer_sex||"—")}</div>
       <div><b>Date of birth</b>${customer.customer_dob?fmt(customer.customer_dob):"—"}</div>
@@ -25,15 +32,41 @@ async function customerPage(){
       <div style="grid-column:1/-1"><b>Health condition</b>${esc(customer.health_info||"—")}</div>
     </div>
   </div>`).join("");
-  return `<div class="calhead"><h1>Customer</h1><span class="muted">${customers.length} customers in sa</span><span style="flex:1"></span><button class="add" style="width:44px;height:36px" title="Add bank customers" aria-label="Add bank customers" onclick="custForm()">+</button></div>${list||'<div class="card pad">No customer records found.</div>'}`;
+  const filterLabel=ageFilter?`Age ${ageFilter.op} ${ageFilter.value}`:"All customers";
+  return `<div class="calhead"><h1>Customer</h1><span class="muted">${esc(filterLabel)} · ${matches.length} of ${customers.length} in sa</span><span style="flex:1"></span>${ageFilter?'<button class="btn" onclick="clearCustomerFilter()">Clear filter</button> ':""}<button class="btn" onclick="ageForm()">Filter</button><button class="add" style="width:44px;height:36px" title="Add bank customers" aria-label="Add bank customers" onclick="custForm()">+</button></div>${list||'<div class="card pad">No customer records found.</div>'}`;
 }
+
+const queryStr=()=>crit.age?.open&&crit.age.val!==""?`age${crit.age.op}${crit.age.val}`:"";
+
+function ageForm(){
+  crit={age:{open:Boolean(ageFilter),op:ageFilter?.op||">",val:ageFilter?String(ageFilter.value):""}};
+  drawCust();
+  $("#overlay").classList.add("show");
+}
+
+function drawCust(){
+  const age=crit.age;
+  const ageFilter=age.open
+    ? `<select style="width:70px" onchange="crit.age.op=this.value;$('#qline').textContent=queryStr()||'none (all)'">${["<","=",">"].map(op=>`<option value="${op}" ${op===age.op?"selected":""}>${op}</option>`).join("")}</select><input inputmode="numeric" aria-label="Age" value="${esc(age.val)}" oninput="this.value=this.value.replace(/[^0-9]/g,'');crit.age.val=this.value;$('#qline').textContent=queryStr()||'none (all)'">`
+    : `<button class="btn" onclick="crit.age.open=true;drawCust()">Any</button>`;
+  $("#modal").className="card modal";
+  $("#modal").innerHTML=`<h1>Filter customers</h1><div class="crit"><b>Age:</b>${ageFilter}</div><p class="muted">Filter: <span id="qline">${esc(queryStr())||"none (all)"}</span></p><div class="actions"><button class="btn" onclick="closeModal()">Cancel</button><button class="btn ok" onclick="applyAgeFilter()">Apply</button></div>`;
+}
+
+function applyAgeFilter(){
+  ageFilter=crit.age.open&&crit.age.val!==""?{op:crit.age.op,value:Number(crit.age.val)}:null;
+  closeModal();
+  render();
+}
+
+function clearCustomerFilter(){ageFilter=null;render()}
 
 function custForm(){
   $("#modal").className="card modal";
   $("#modal").innerHTML=`<h1>Search bank customers</h1>
-    <label for="customer-q">Name, email, telephone, or address</label><input id="customer-q" maxlength="200" value="${esc(customerFilter.q)}" placeholder="Search text">
-    <label for="salary-min">Minimum salary</label><input id="salary-min" inputmode="numeric" value="${esc(customerFilter.salary_min)}" placeholder="Any">
-    <label for="salary-max">Maximum salary</label><input id="salary-max" inputmode="numeric" value="${esc(customerFilter.salary_max)}" placeholder="Any">
+    <label for="customer-q">Name, email, telephone, or address</label><input id="customer-q" maxlength="200" value="${esc(bankFilter.q)}" placeholder="Search text">
+    <label for="salary-min">Minimum salary</label><input id="salary-min" inputmode="numeric" value="${esc(bankFilter.salary_min)}" placeholder="Any">
+    <label for="salary-max">Maximum salary</label><input id="salary-max" inputmode="numeric" value="${esc(bankFilter.salary_max)}" placeholder="Any">
     <p class="muted">Enter a search term or salary filter. Salary uses the units stored in the bank database.</p>
     <div class="actions"><button class="btn" onclick="closeModal()">Cancel</button><button class="btn ok" onclick="sendQuery()">Search</button></div>`;
   $("#overlay").classList.add("show");
@@ -50,10 +83,10 @@ async function sendQuery(){
   if(!q&&!salary_min&&!salary_max){invalidSearch("Enter a search term or salary filter.");return}
   if((salary_min&&!/^\d+$/.test(salary_min))||(salary_max&&!/^\d+$/.test(salary_max))){invalidSearch("Salary filters must be non-negative whole numbers.");return}
   if(salary_min&&salary_max&&Number(salary_min)>Number(salary_max)){invalidSearch("Minimum salary must not exceed maximum salary.");return}
-  customerFilter={q,salary_min,salary_max};
+  bankFilter={q,salary_min,salary_max};
   $("#modal").innerHTML='<h1>Searching bank customers...</h1>';
   try{
-    const results=await api.searchBankCustomers(customerFilter);
+    const results=await api.searchBankCustomers(bankFilter);
     const existing=new Set(saCustomers.map(customer=>Number(customer.customer_id)));
     bankMatches=results.filter(customer=>!existing.has(Number(customer.customer_id)));
     drawBankMatches(results.length-bankMatches.length);
