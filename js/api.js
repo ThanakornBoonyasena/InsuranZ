@@ -1,11 +1,18 @@
 // Insurance, commission, and report creation use the backend API; remaining demo sections use localStorage.
 const KEY="insuranz_db_v2";
 const API_BASE=window.API_BASE_URL||"http://localhost:3000/api/v1";
+const BANK_API_BASE=window.BANK_API_BASE_URL||"http://localhost:3001/api/v1";
 async function requestBackend(path,options={}){
   const response=await fetch(`${API_BASE}${path}`,{
     ...options,
     headers:{"Content-Type":"application/json",...(options.headers||{})}
   });
+  const payload=await response.json().catch(()=>({}));
+  if(!response.ok)throw new Error(payload.error||payload.message||`Request failed (${response.status})`);
+  return payload;
+}
+async function requestBank(path){
+  const response=await fetch(`${BANK_API_BASE}${path}`);
   const payload=await response.json().catch(()=>({}));
   if(!response.ok)throw new Error(payload.error||payload.message||`Request failed (${response.status})`);
   return payload;
@@ -67,6 +74,15 @@ const api={
   async customerRecords(){
     const result=await requestBackend("/customer/customer-info");
     return result.data||[];
+  },
+  async searchBankCustomers(filters={}){
+    const params=new URLSearchParams();
+    for(const [key,value] of Object.entries(filters))if(value!="")params.set(key,value);
+    const result=await requestBank(`/bank/customers?${params.toString()}`);
+    return result.data||[];
+  },
+  async addCustomers(customers){
+    return requestBackend("/customer/customer-info/add",{method:"POST",body:JSON.stringify({data:customers})});
   },
   async setInsuranceCondition(id,approved){return requestBackend("/insurance/approve",{method:"POST",body:JSON.stringify({insurance_id:id,insurance_condition:approved?"ACCEPT":"REJECT"})})},
   async sendInsurance(id){return requestBackend("/insurance/send",{method:"POST",body:JSON.stringify({insurance_id:id})})},
