@@ -75,6 +75,43 @@ const api={
     const result=await requestBackend("/customer/customer-info");
     return result.data||[];
   },
+  async appointmentData(){
+    const [result,customerList,reportList]=await Promise.all([
+      requestBackend("/appointments"),
+      this.customerRecords(),
+      this.reports()
+    ]);
+    const reportsByAppointment=new Map(reportList.map(appointment=>[
+      Number(appointment.appointment_id),
+      appointment.reports||[]
+    ]));
+    return {
+      appointments:(result.data||[]).map(appointment=>({
+        ...appointment,
+        id:appointment.appointment_id,
+        reports:(reportsByAppointment.get(Number(appointment.appointment_id))||[]).map(report=>({
+          ...report,
+          date:report.create_timestamp,
+          report_note:report.content
+        }))
+      })),
+      customers:customerList,
+      packages:result.package_options||[]
+    };
+  },
+  async saveAppointment(appointment){
+    const payload={
+      customer_id:appointment.customer_id,
+      appointment_date:new Date(appointment.appointment_date).toISOString(),
+      location:appointment.location,
+      packages:appointment.packages||[]
+    };
+    const path=appointment.id?`/appointments/${appointment.id}`:"/appointments";
+    return requestBackend(path,{method:appointment.id?"PUT":"POST",body:JSON.stringify(payload)});
+  },
+  async deleteAppointment(id){
+    return requestBackend(`/appointments/${id}`,{method:"DELETE"});
+  },
   async searchBankCustomers(filters={}){
     const params=new URLSearchParams();
     for(const [key,value] of Object.entries(filters))if(value!="")params.set(key,value);
