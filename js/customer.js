@@ -4,15 +4,15 @@ let customerFilter=null;
 async function customerPage(){
   const customers=await api.customerRecords();
   const matches=customerFilter?customers.filter(customer=>{
-    const age=ageFromDOB(customer.customer_dob);
-    if(age===null)return false;
+    const age=Number(customer.customer_age);
+    if(!Number.isFinite(age))return false;
     const value=customerFilter.value;
     return customerFilter.op==="<"?age<value:customerFilter.op===">"?age>value:age===value;
   }):customers;
   const list=matches.map(customer=>`<div class="card row ${openId==="c"+customer.customer_id?"open":""}">
     <div class="row-head" style="grid-template-columns:1.5fr 1fr 1fr" onclick="toggle('c${customer.customer_id}')">
       <div><b>${esc(customer.customer_name)}</b></div>
-      <div class="muted">Age ${ageFromDOB(customer.customer_dob)??"—"}</div>
+      <div class="muted">Age ${customer.customer_age??"—"}</div>
       <div class="muted">#${customer.customer_id}</div>
     </div>
     <div class="detail">
@@ -20,8 +20,7 @@ async function customerPage(){
       <div><b>Telephone number</b>${esc(customer.telephone_number||"-")}</div>
       <div><b>Email</b>${esc(customer.customer_email||"—")}</div>
       <div><b>Address</b>${esc(customer.customer_address||"—")}</div>
-      <div><b>Salary</b>${customer.salary?`฿${Number(customer.salary).toLocaleString()}`:"—"}</div>
-      <div><b>Job description</b>${esc(customer.job_description||"—")}</div>
+      <div><b>Nationality</b>${esc(customer.customer_nationality||"—")}</div>
       <div><b>Gender</b>${esc(customer.customer_gender||"—")}</div>
       <div><b>Sex</b>${esc(customer.customer_sex||"—")}</div>
       <div><b>Date of birth</b>${customer.customer_dob?fmt(customer.customer_dob):"—"}</div>
