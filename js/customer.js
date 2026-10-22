@@ -30,6 +30,7 @@ async function customerPage(){
       <div><b>Date of birth</b>${customer.customer_dob?fmt(customer.customer_dob):"—"}</div>
       <div><b>Customer since</b>${customer.create_timestamp?fmt(customer.create_timestamp):"—"}</div>
       <div style="grid-column:1/-1"><b>Health condition</b>${esc(customer.health_info||"—")}</div>
+      <div style="grid-column:1/-1"><b>Health detail</b>${esc(customer.health_detail||"—")}</div>
     </div>
   </div>`).join("");
   const filterLabel=ageFilter?`Age ${ageFilter.op} ${ageFilter.value}`:"All customers";

@@ -68,7 +68,7 @@ const api={
     const result=await requestBackend("/insurance/insurance-info");
     return (result.data||[]).map(record=>{
       const condition=record.insurance_condition||record.status||"";
-      return {...record,status:condition==="ACCEPT"?true:condition==="REJECT"?false:null,sent:record.sent===true};
+      return {...record,status:condition==="ACCEPT"?true:condition==="REJECT"?false:null};
     });
   },
   async customerRecords(){
@@ -76,10 +76,11 @@ const api={
     return result.data||[];
   },
   async appointmentData(){
-    const [result,customerList,reportList]=await Promise.all([
+    const [result,customerList,reportList,sellingCaseList]=await Promise.all([
       requestBackend("/appointments"),
       this.customerRecords(),
-      this.reports()
+      this.reports(),
+      this.sellingCases()
     ]);
     const reportsByAppointment=new Map(reportList.map(appointment=>[
       Number(appointment.appointment_id),
@@ -96,12 +97,15 @@ const api={
         }))
       })),
       customers:customerList,
-      packages:result.package_options||[]
+      packages:result.package_options||[],
+      sellingCases:sellingCaseList
     };
   },
   async saveAppointment(appointment){
     const payload={
       customer_id:appointment.customer_id,
+      sell_case_id:appointment.sell_case_id?Number(appointment.sell_case_id):null,
+      user_id:Number(appointment.user_id||store.get("user_id")),
       appointment_date:new Date(appointment.appointment_date).toISOString(),
       location:appointment.location,
       packages:appointment.packages||[]
@@ -122,7 +126,6 @@ const api={
     return requestBackend("/customer/customer-info/add",{method:"POST",body:JSON.stringify({data:customers})});
   },
   async setInsuranceCondition(id,approved){return requestBackend("/insurance/approve",{method:"POST",body:JSON.stringify({insurance_id:id,insurance_condition:approved?"ACCEPT":"REJECT"})})},
-  async sendInsurance(id){return requestBackend("/insurance/send",{method:"POST",body:JSON.stringify({insurance_id:id})})},
   async editInsurance(id,detail){return requestBackend("/insurance/edit",{method:"POST",body:JSON.stringify({insurance_id:id,additional_detail:detail})})},
   async insurances(){return db.insurances.map(i=>({...i,customer:db.customers.find(c=>c.customer_id===i.customer_id),package:db.packages.find(p=>p.package_id===i.package_id)}))},
   async update(id,patch){Object.assign(db.insurances.find(i=>i.insurance_id===id),patch);persist()},
@@ -225,6 +228,15 @@ const api={
   },
   async notifications(){
     const result=await requestBackend("/notification");
-    return (result.data||[]).map(n=>({...n,text:n.content??n.text??"",time:n.create_timestamp??n.created_at??n.time??""}));
+    return (result.data||[]).map(n=>({
+      ...n,
+      id:n.notification_id??n.id,
+      is_read:n.is_read===true,
+      text:n.content??n.text??"",
+      time:n.create_timestamp??n.created_at??n.time??""
+    }));
+  },
+  async markNotificationRead(id){
+    return requestBackend(`/notification/${encodeURIComponent(id)}/read`,{method:"PATCH"});
   }
 };

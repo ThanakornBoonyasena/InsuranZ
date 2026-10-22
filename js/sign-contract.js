@@ -24,7 +24,7 @@ function calcContract(pkgs,sums){
 
 async function signContractPage(){
   const [ins,contracts,discarded]=await Promise.all([api.insuranceRecords(),api.contracts(),api.discardedContracts()]);
-  const edited=ins.filter(i=>i.edited===true||i.sent===true);
+  const edited=ins.filter(i=>i.status===true);
   const rows=edited.map(i=>{
     const name=i.customer_name||i.customer?.customer_name||"-";
     const signed=contracts.some(c=>c.insurance_id===i.insurance_id);
@@ -125,7 +125,7 @@ function summaryHTML(){
     ${kv("Name",c.customer_name)}${kv("Age",ageFromDOB(c.customer_dob)??"")}${kv("Customer ID",c.customer_id)}${kv("Telephone number",c.telephone_number)}
     ${kv("Email",c.customer_email)}${kv("Address",c.customer_address)}${kv("Salary",c.salary?baht(c.salary):"")}${kv("Job description",c.job_description)}
     ${kv("Gender",c.customer_gender)}${kv("Sex",c.customer_sex)}${kv("Date of birth",c.customer_dob?fmt(c.customer_dob):"")}${kv("Customer since",c.create_timestamp?fmt(c.create_timestamp):"")}
-    ${kv("Health condition",c.health_info,true)}
+    ${kv("Health condition",c.health_info)}${kv("Health detail",c.health_detail,true)}
   </div></div>
   <div class="sec"><h2>Guarantor</h2><div class="sum">${kv("Name",cf.g.name)}${kv("Age",cf.g.age)}${kv("Job",cf.g.job)}${kv("Address",cf.g.address)}${kv("Relation",cf.g.relation)}</div></div>
   <div class="sec"><h2>Packages and cost</h2>

@@ -1,19 +1,17 @@
 async function insurancePage(){
   const list=await api.insuranceRecords();
-  if(openId===null&&list.length)openId=list[0].insurance_id;
   const rows=list.map(i=>{
     const customer=i.customer||{};
     const name=i.customer_name||customer.customer_name||"-";
-    return `<article class="card row insurance-card ${openId===i.insurance_id?"open":""}">
-      <div class="row-head insurance-row-head" onclick="toggle(${i.insurance_id})" aria-expanded="${openId===i.insurance_id}">
+    return `<article class="card row insurance-card ${openId===i.insurance_id?"open":""}" data-insurance-id="${i.insurance_id}">
+      <div class="row-head insurance-row-head" onclick="toggleInsurance(${i.insurance_id})" aria-expanded="${openId===i.insurance_id}">
         <div><b>#${i.insurance_id}</b></div>
         <div class="insurance-customer">${esc(name)}</div>
         <div class="muted">${fmt(i.sign_date)}</div>
         <div class="btns insurance-actions" onclick="event.stopPropagation()">
           ${i.status===null?`<button class="btn ok" onclick="setStatus(${i.insurance_id},true)">Approve</button>`:""}
           ${i.status===null?`<button class="btn bad" onclick="setStatus(${i.insurance_id},false)">Deny</button>`:""}
-          <button class="btn" onclick="editForm(${i.insurance_id})">Edit</button>
-          ${i.status===true?(i.sent?'<span class="s-ok" style="font-size:13px;padding:0 8px">Sent</span>':`<button class="btn pri" onclick="sendIns(${i.insurance_id})">Send</button>`):""}
+          ${i.status===null?`<button class="btn" onclick="editForm(${i.insurance_id})">Edit</button>`:""}
         </div>
       </div>
       ${insuranceDetailHTML(i)}
@@ -22,18 +20,18 @@ async function insurancePage(){
   return `<section class="insurance-page"><h1>Insurance</h1><div class="insurance-list">${rows||'<div class="card pad">No insurance records found.</div>'}</div></section>`;
 }
 
+function toggleInsurance(id){
+  openId=openId===id?null:id;
+  document.querySelectorAll(".insurance-card[data-insurance-id]").forEach(card=>{
+    const isOpen=openId!==null&&card.dataset.insuranceId===String(openId);
+    card.classList.toggle("open",isOpen);
+    card.querySelector(".insurance-row-head")?.setAttribute("aria-expanded",String(isOpen));
+  });
+}
+
 async function setStatus(id,approved){
   try{
     await api.setInsuranceCondition(id,approved);
-    await render();
-  }catch(error){
-    showInsuranceError(error);
-  }
-}
-
-async function sendIns(id){
-  try{
-    await api.sendInsurance(id);
     await render();
   }catch(error){
     showInsuranceError(error);
@@ -64,8 +62,7 @@ async function saveEdit(id){
 }
 
 function showInsuranceError(error){
-  const message=esc(error?.message||"Unable to complete the request");
-  $("#main").innerHTML=`<section class="insurance-page"><h1>Insurance</h1><div class="card pad">${message}</div></section>`;
+  showToast(error?.message||"Unable to complete the request");
 }
 
 async function render(){

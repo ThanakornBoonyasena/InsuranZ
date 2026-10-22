@@ -30,6 +30,7 @@ async function render(){
   try{
     $("#main").innerHTML=await reportPage();
   }catch(error){
+    showToast(error.message||"Unable to load reports");
     $("#main").innerHTML=`<h1>Report</h1><div class="card">${esc(error.message||"Unable to load reports")}</div>`;
   }
 }

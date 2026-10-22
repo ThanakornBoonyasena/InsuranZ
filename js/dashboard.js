@@ -78,6 +78,7 @@ async function render(){
   try{
     $("#main").innerHTML=await dashboardPage();
   }catch(error){
+    showToast(error.message||"Unable to load dashboard");
     $("#main").innerHTML=`<h1>Dashboard</h1><div class="card pad">${esc(error.message||"Unable to load dashboard")}</div>`;
   }
 }

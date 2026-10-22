@@ -1,5 +1,5 @@
 // ---- Appointment ----
-const now=new Date();let calY=now.getFullYear(),calM=now.getMonth(),ap=null,apSaved="",appointments=[],customers=[],packageNames=[];
+const now=new Date();let calY=now.getFullYear(),calM=now.getMonth(),ap=null,apSaved="",appointments=[],customers=[],packageNames=[],sellingCases=[];
 const iso=(y,m,d)=>`${y}-${String(m+1).padStart(2,"0")}-${String(d).padStart(2,"0")}`;
 const jc=o=>JSON.parse(JSON.stringify(o));
 function localDateTime(value){const date=new Date(value);return `${iso(date.getFullYear(),date.getMonth(),date.getDate())}T${String(date.getHours()).padStart(2,"0")}:${String(date.getMinutes()).padStart(2,"0")}`}
@@ -11,6 +11,7 @@ async function appointmentPage(){
   appointments=data.appointments;
   customers=data.customers;
   packageNames=data.packages;
+  sellingCases=data.sellingCases||[];
   const first=new Date(calY,calM,1),days=new Date(calY,calM+1,0).getDate();let cells="".padEnd(0);
   for(let k=0;k<first.getDay();k++)cells+="<div></div>";
   for(let d=1;d<=days;d++){const key=iso(calY,calM,d);
@@ -19,13 +20,15 @@ async function appointmentPage(){
 }
 function apptForm(id,day){
   const a=id?appointments.find(x=>x.id===id):null;
-  ap=a?jc(a):{id:null,customer_id:customers[0]?.customer_id||"",customer_name:customers[0]?.customer_name||"",appointment_date:day+"T09:00",location:"",packages:[],reports:[]};
+  ap=a?jc(a):{id:null,customer_id:customers[0]?.customer_id||"",customer_name:customers[0]?.customer_name||"",sell_case_id:null,user_id:Number(store.get("user_id")),appointment_date:day+"T09:00",location:"",packages:[],reports:[]};
   apSaved=JSON.stringify(ap);drawAppt();$("#overlay").classList.add("show");
 }
 function drawAppt(){
   $("#modal").className="card modal wide";
   $("#modal").innerHTML=`<h1>${ap.id===null?"New appointment":"Appointment"}</h1><div class="cols"><div>
   <label>Customer</label><select value="${esc(ap.customer_id)}" onchange="ap.customer_id=this.value;ap.customer_name=customers.find(c=>c.customer_id===this.value)?.customer_name||'';drawActs()">${customers.map(c=>`<option value="${esc(c.customer_id)}" ${String(c.customer_id)===String(ap.customer_id)?"selected":""}>${esc(c.customer_name)}</option>`).join("")}</select>
+  <label>Selling case</label><select onchange="ap.sell_case_id=this.value?Number(this.value):null;drawActs()"><option value="">Not assigned</option>${sellingCases.map(item=>`<option value="${item.sell_case_id}" ${Number(item.sell_case_id)===Number(ap.sell_case_id)?"selected":""}>Case #${item.sell_case_id} · ${esc(item.case_status)}</option>`).join("")}</select>
+  <label>Assigned user ID</label><input value="${esc(ap.user_id??store.get("user_id")??"")}" readonly>
   <label>Date and time</label><input type="datetime-local" value="${localDateTime(ap.appointment_date)}" oninput="ap.appointment_date=this.value;drawActs()" onchange="ap.appointment_date=this.value;drawActs()">
   <label>Packages to discuss</label><div class="muted" style="font-size:12px;margin-bottom:6px">Choose one or more packages from the list.</div><div class="package-picker"><div class="tagbox" id="tagbox" onclick="$('#tagin').focus()">${tagsInner()}</div><div class="package-options" id="package-options" role="listbox" hidden></div></div><div class="tagfoot"><span class="muted" id="tagcount">${tagCount()}</span><button class="btn bad" onclick="clearTags()">Remove All</button></div>
   <label>Location</label><input value="${esc(ap.location)}" oninput="ap.location=this.value;drawActs()">
@@ -107,6 +110,6 @@ async function abortAppt(){
 async function render(){
   $("#main").innerHTML='<div class="card pad">Loading appointments...</div>';
   try{$("#main").innerHTML=await appointmentPage()}
-  catch(error){$("#main").innerHTML=`<div class="card pad">${esc(error.message||"Unable to load appointments")}</div>`}
+  catch(error){showToast(error.message||"Unable to load appointments");$("#main").innerHTML=`<div class="card pad">${esc(error.message||"Unable to load appointments")}</div>`}
 }
 mountNav("appointment");render();

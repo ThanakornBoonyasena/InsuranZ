@@ -1,2 +1,10 @@
 .list-item{padding:12px 16px;display:flex;justify-content:space-between;gap:12px;border-bottom:1px solid var(--line)}
 .list-item:last-child{border:0}
+.notification-item{align-items:center;transition:background .2s,opacity .2s}
+.notification-item.is-unread{background:color-mix(in srgb,var(--brand) 5%,transparent)}
+.notification-item.is-read{opacity:.5}
+.notification-copy{display:flex;flex-direction:column;gap:3px;min-width:0}
+.notification-text{overflow-wrap:anywhere}
+.notification-state{display:flex;align-items:center;gap:10px;flex:none}
+.notification-empty{padding:4px 16px}
+@media(max-width:600px){.notification-item{align-items:flex-start;flex-direction:column}.notification-state{width:100%;justify-content:flex-end}}
