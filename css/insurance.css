@@ -1,1 +1,24 @@
-/* page styles */
+/* Company insurance list */
+.insurance-page{width:100%}
+.insurance-list{display:flex;flex-direction:column;gap:10px}
+.insurance-card{margin:0}
+.insurance-row-head{grid-template-columns:90px minmax(160px,1fr) 130px auto;min-height:50px}
+.insurance-customer{overflow-wrap:anywhere}
+.insurance-actions{align-items:center;justify-content:flex-end;flex-wrap:wrap}
+.insurance-detail{grid-template-columns:repeat(4,minmax(0,1fr));gap:10px 20px;padding:12px 14px 14px}
+.insurance-detail>div{min-width:0;overflow-wrap:anywhere}
+.insurance-detail>div>b{margin-bottom:1px}
+
+@media(max-width:760px){
+  .insurance-row-head{grid-template-columns:minmax(0,1fr) auto;gap:8px 12px}
+  .insurance-row-head>.muted{grid-column:1;grid-row:2}
+  .insurance-actions{grid-column:2;grid-row:1 / span 2}
+  .insurance-detail{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
+
+@media(max-width:420px){
+  .insurance-row-head{padding:10px}
+  .insurance-actions{gap:4px}
+  .insurance-actions .btn{padding:4px 8px}
+  .insurance-detail{grid-template-columns:1fr}
+}

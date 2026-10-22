@@ -23,6 +23,9 @@ h1{font-size:22px;margin:0 0 16px;letter-spacing:.02em}
 .detail{display:none;padding:12px 14px 14px;border-top:1px solid var(--line);grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px 20px}
 .row.open .detail{display:grid}
 .detail b{display:block;font-size:12px;color:var(--muted);font-weight:500}
+.insurance-detail{grid-template-columns:repeat(4,minmax(0,1fr));gap:10px 20px;padding:12px 14px 14px}
+.insurance-detail>div{min-width:0;overflow-wrap:anywhere}
+.insurance-condition{grid-column:1/-1}
 .badge{font-size:12px;padding:1px 8px;border-radius:3px;border:1px solid currentColor}
 .s-ok{color:var(--ok)}.s-bad{color:var(--bad)}.s-warn{color:var(--warn)}
 .overlay{position:fixed;inset:0;background:rgba(0,0,0,.5);display:none;place-items:center;z-index:20;padding:16px}
@@ -36,4 +39,6 @@ input,select,textarea{width:100%;padding:8px 10px;border:1px solid var(--line);b
 .add:hover{background:color-mix(in srgb,var(--ok) 14%,transparent);border-style:solid}
 .calhead{display:flex;align-items:center;gap:12px;margin-bottom:14px}.calhead h1{margin:0}
 .rep{border-left:3px solid var(--line);padding:4px 10px;margin-bottom:8px;font-size:13px}
+@media(max-width:760px){.insurance-detail{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:420px){.insurance-detail{grid-template-columns:1fr}}
 @media(max-width:640px){.nav{gap:8px;padding:8px 10px}.profile span.n{display:none}.row-head{grid-template-columns:1fr auto}.row-head>:nth-child(3){display:none}}

@@ -30,22 +30,14 @@ async function dashboardPage(){
 
   const list=records.map(record=>{
     const customer=record.customer||{};
-    return `<div class="card row ${openId===record.insurance_id?"open":""}" data-insurance-id="${record.insurance_id}">
+    return `<div class="card row dashboard-insurance-card ${openId===record.insurance_id?"open":""}" data-insurance-id="${record.insurance_id}">
       <div class="row-head" onclick="toggleDashboardInsurance(${record.insurance_id})">
         <div><b>#${record.insurance_id}</b></div>
         <div>${esc(customer.customer_name||"-")}</div>
         <div class="muted">${fmt(record.sign_date)}</div>
         <div>${statusBadge(record.status)}</div>
       </div>
-      <div class="detail">
-        <div><b>Type</b>${esc(record.type||"-")}</div>
-        <div><b>Payment</b>${Number(record.payment_amount||0).toLocaleString()} every ${record.payment_interval_month||"-"} month(s)</div>
-        <div><b>Customer telephone</b>${esc(customer.telephone_number||"-")}</div>
-        <div><b>Customer age</b>${customer.customer_age??"-"}</div>
-        <div><b>Health condition</b>${esc(customer.health_info||"-")}</div>
-        ${customer.create_timestamp?`<div><b>Customer since</b>${fmt(customer.create_timestamp)}</div>`:""}
-        <div style="grid-column:1/-1"><b>Additional detail</b>${esc(record.additional_detail||"-")}</div>
-      </div>
+      ${insuranceDetailHTML(record)}
     </div>`;
   }).join("");
 
