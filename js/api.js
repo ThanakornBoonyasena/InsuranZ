@@ -71,7 +71,7 @@ const api={
     const query=params.toString()?`?${params}`:"";
     const result=await requestBackend(`/insurance/insurance-info${query}`);
     return (result.data||[]).map(record=>{
-      const condition=record.insurance_condition||record.status||"";
+      const condition=record.status||"";
       const statusMap={ACCEPT:"Approve",REJECT:"Deny",APPROVE:"Approve",DENY:"Deny"};
       return {...record,status:statusMap[String(condition).trim().toUpperCase()]||condition||"Pending"};
     });
