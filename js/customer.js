@@ -20,7 +20,7 @@ const customerFilterFields=[
 ];
 
 async function customerPage(){
-  const customers=await api.customerRecords();
+  const customers=await api.customerRecords(true);
   saCustomers=customers;
   const matches=customers.filter(customer=>Object.entries(customerFilters).every(([key,filter])=>{
     const field=customerFilterFields.find(item=>item.key===key);
@@ -40,6 +40,14 @@ async function customerPage(){
   }));
   const list=matches.map(customer=>`<div class="card row ${openId==="c"+customer.customer_id?"open":""}">
     <div class="row-head" style="grid-template-columns:1.5fr 1fr 1fr" onclick="toggle('c${customer.customer_id}')">
+    const matches=ageFilter?customers.filter(customer=>{
+    const age=Number(customer.customer_age);
+    if(!Number.isFinite(age))return false;
+    const value=ageFilter.value;
+    return ageFilter.op==="<"?age<value:ageFilter.op===">"?age>value:age===value;
+  }):customers;
+  const list=matches.map(customer=>`<div class="card row customer-card ${openId==="c"+customer.customer_id?"open":""}" data-customer-id="${esc(customer.customer_id)}">
+    <div class="row-head" style="grid-template-columns:1.5fr 1fr 1fr" onclick="toggleCustomer('${esc(customer.customer_id)}')">
       <div><b>${esc(customer.customer_name)}</b></div>
       <div class="muted">Age ${customer.customer_age??"—"}</div>
       <div class="muted">#${customer.customer_id}</div>
@@ -58,6 +66,7 @@ async function customerPage(){
       <div style="grid-column:1/-1"><b>Health condition</b>${esc(customer.health_info||"—")}</div>
       <div style="grid-column:1/-1"><b>Health detail</b>${esc(customer.health_detail||"—")}</div>
     </div>
+    <div class="detail" id="customer-detail-${esc(customer.customer_id)}"></div>
   </div>`).join("");
   const filterCount=Object.keys(customerFilters).length;
   const filterLabel=filterCount?`${filterCount} filter${filterCount===1?"":"s"}`:"All customers";
@@ -69,6 +78,39 @@ function customerFilterForm(){
     const active=customerFilters[field.key];
     return [field.key,{open:Boolean(active),op:active?.op||defaultFilterOperator(field),value:active?.value??""}];
   }));
+const customerDetailsCache=new Map();
+function customerDetailHTML(customer){
+  return `<div><b>Customer ID</b>${esc(customer.customer_id)}</div>
+    <div><b>Telephone number</b>${esc(customer.telephone_number||"-")}</div>
+    <div><b>Email</b>${esc(customer.customer_email||"—")}</div>
+    <div><b>Address</b>${esc(customer.customer_address||"—")}</div>
+    <div><b>Nationality</b>${esc(customer.customer_nationality||"—")}</div>
+    <div><b>Gender</b>${esc(customer.customer_gender||"—")}</div>
+    <div><b>Sex</b>${esc(customer.customer_sex||"—")}</div>
+    <div><b>Date of birth</b>${customer.customer_dob?fmt(customer.customer_dob):"—"}</div>
+    <div><b>Customer since</b>${customer.create_timestamp?fmt(customer.create_timestamp):"—"}</div>
+    <div style="grid-column:1/-1"><b>Health condition</b>${esc(customer.health_info||"—")}</div>
+    <div style="grid-column:1/-1"><b>Health detail</b>${esc(customer.health_detail||"—")}</div>`;
+}
+async function toggleCustomer(id){
+  const key="c"+id;
+  openId=openId===key?null:key;
+  document.querySelectorAll(".customer-card").forEach(card=>card.classList.toggle("open",openId===key&&card.dataset.customerId===String(id)));
+  if(openId!==key)return;
+  const detail=document.getElementById(`customer-detail-${id}`);
+  if(!detail)return;
+  detail.innerHTML="<span class=muted>Loading customer details...</span>";
+  try{
+    let customer=customerDetailsCache.get(String(id));
+    if(!customer){customer=await api.customerRecord(id);if(!customer)throw new Error("Customer not found");customerDetailsCache.set(String(id),customer)}
+    if(openId===key)detail.innerHTML=customerDetailHTML(customer);
+  }catch(error){if(openId===key)detail.innerHTML=`<span class="s-bad">${esc(error.message||"Unable to load customer details")}</span>`}
+}
+
+const queryStr=()=>crit.age?.open&&crit.age.val!==""?`age${crit.age.op}${crit.age.val}`:"";
+
+function ageForm(){
+  crit={age:{open:Boolean(ageFilter),op:ageFilter?.op||">",val:ageFilter?String(ageFilter.value):""}};
   drawCust();
   $("#overlay").classList.add("show");
 }

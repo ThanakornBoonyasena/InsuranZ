@@ -25,10 +25,10 @@ const DEFAULTS = {
     {customer_id:3,customer_name:"Arthit Boonmee",telephone_number:"000-000-0003",customer_email:"arthit@example.com",customer_address:"45 Nimmanhaemin Road, Chiang Mai",customer_gender:"Male",customer_sex:"Male",salary:72000,job_description:"Business owner",customer_dob:"1971-09-07T00:00:00",create_timestamp:"2025-11-20T11:00",health_info:"Type 2 diabetes"}
   ],
   insurances: [
-    {insurance_id:1001,customer_id:1,package_id:1,broker:"B-204",selling_case:"Referral",status:null,sign_date:"2026-09-14T10:00",additional_detail:"Family coverage add-on requested.",type:"Health",payment_amount:1500,payment_interval_months:1},
-    {insurance_id:1002,customer_id:2,package_id:2,broker:"B-204",selling_case:"Walk-in",status:true,sign_date:"2026-08-30T16:45",additional_detail:"",type:"Life",payment_amount:3200,payment_interval_months:3},
-    {insurance_id:1004,customer_id:2,package_id:3,broker:"B-117",selling_case:"Online",status:true,sign_date:"2026-10-05T09:00",additional_detail:"",type:"Auto",payment_amount:900,payment_interval_months:1},
-    {insurance_id:1003,customer_id:3,package_id:1,broker:"B-204",selling_case:"Online",status:false,sign_date:"2026-10-01T13:20",additional_detail:"Pre-existing condition under review.",type:"Health",payment_amount:2100,payment_interval_months:6}
+    {insurance_id:1001,customer_id:1,package_id:1,broker:"B-204",selling_case:"Referral",status:null,sign_date:"2026-09-14T10:00",additional_detail:"Family coverage add-on requested."},
+    {insurance_id:1002,customer_id:2,package_id:2,broker:"B-204",selling_case:"Walk-in",status:true,sign_date:"2026-08-30T16:45",additional_detail:""},
+    {insurance_id:1004,customer_id:2,package_id:3,broker:"B-117",selling_case:"Online",status:true,sign_date:"2026-10-05T09:00",additional_detail:""},
+    {insurance_id:1003,customer_id:3,package_id:1,broker:"B-204",selling_case:"Online",status:false,sign_date:"2026-10-01T13:20",additional_detail:"Pre-existing condition under review."}
   ],
   commissions: [
     {insurance_id:1002,broker:"B-204",amount:960,date:"2026-09-05"},
@@ -64,23 +64,38 @@ const persist=()=>{try{localStorage.setItem(KEY,JSON.stringify(db))}catch{}};
 function reloadDb(){try{const d=JSON.parse(localStorage.getItem(KEY));if(d)db=d}catch{}}
 persist();
 const api={
-  async insuranceRecords(){
-    const result=await requestBackend("/insurance/insurance-info");
+  async insuranceRecords(userID,summary=false){
+    const params=new URLSearchParams();
+    if(userID)params.set("user_id",userID);
+    if(summary)params.set("summary","true");
+    const query=params.toString()?`?${params}`:"";
+    const result=await requestBackend(`/insurance/insurance-info${query}`);
     return (result.data||[]).map(record=>{
-      const condition=record.insurance_condition||record.status||"";
-      return {...record,status:condition==="ACCEPT"?true:condition==="REJECT"?false:null};
+      const condition=record.status||"";
+      const statusMap={ACCEPT:"Approve",REJECT:"Deny",APPROVE:"Approve",DENY:"Deny"};
+      return {...record,status:statusMap[String(condition).trim().toUpperCase()]||condition||"Pending"};
     });
   },
-  async customerRecords(){
-    const result=await requestBackend("/customer/customer-info");
+  async insuranceRecord(id,userID){
+    const params=new URLSearchParams({insurance_id:String(id)});
+    if(userID)params.set("user_id",userID);
+    const result=await requestBackend(`/insurance/insurance-info?${params}`);
+    return result.data?.[0]||null;
+  },
+  async customerRecords(summary=false){
+    const query=summary?"?summary=true":"";
+    const result=await requestBackend(`/customer/customer-info${query}`);
     return result.data||[];
   },
+  async customerRecord(id){
+    const result=await requestBackend(`/customer/customer-info?customer_id=${encodeURIComponent(id)}`);
+    return result.data?.[0]||null;
+  },
   async appointmentData(){
-    const [result,customerList,reportList,sellingCaseList]=await Promise.all([
+    const [result,customerList,reportList]=await Promise.all([
       requestBackend("/appointments"),
       this.customerRecords(),
-      this.reports(),
-      this.sellingCases()
+      this.reports()
     ]);
     const reportsByAppointment=new Map(reportList.map(appointment=>[
       Number(appointment.appointment_id),
@@ -97,8 +112,7 @@ const api={
         }))
       })),
       customers:customerList,
-      packages:result.package_options||[],
-      sellingCases:sellingCaseList
+      packages:result.package_options||[]
     };
   },
   async saveAppointment(appointment){
@@ -129,8 +143,18 @@ const api={
   async addCustomers(customers){
     return requestBackend("/customer/customer-info/add",{method:"POST",body:JSON.stringify({data:customers})});
   },
-  async setInsuranceCondition(id,approved){return requestBackend("/insurance/approve",{method:"POST",body:JSON.stringify({insurance_id:id,insurance_condition:approved?"ACCEPT":"REJECT"})})},
-  async editInsurance(id,detail){return requestBackend("/insurance/edit",{method:"POST",body:JSON.stringify({insurance_id:id,additional_detail:detail})})},
+  async approveInsurance(id){return requestBackend("/insurance/approve",{method:"POST",body:JSON.stringify({insurance_id:id,insurance_condition:"ACCEPT"})})},
+  async denyInsurance(id){return requestBackend("/insurance/deny",{method:"POST",body:JSON.stringify({insurance_id:id})})},
+  async editInsurance(id,detail){
+    const result=await requestBackend("/insurance/edit",{method:"POST",body:JSON.stringify({insurance_id:id,additional_detail:detail})});
+    // Keep prior demo contract details for the re-sign form, but clear its discarded marker.
+    db.discarded=(db.discarded||[]).filter(insuranceID=>Number(insuranceID)!==Number(id));
+    persist();
+    return result;
+  },
+  async submitSignedContract(contract){
+    return requestBackend("/insurance/sign-contract",{method:"POST",body:JSON.stringify(contract)});
+  },
   async insurances(){return db.insurances.map(i=>({...i,customer:db.customers.find(c=>c.customer_id===i.customer_id),package:db.packages.find(p=>p.package_id===i.package_id)}))},
   async update(id,patch){Object.assign(db.insurances.find(i=>i.insurance_id===id),patch);persist()},
   async commissionTable(){
@@ -140,15 +164,15 @@ const api={
 
     // The database stores each cell by its actual point and percent axes.
     // Rebuild the editable grid from those axes instead of positional indices.
-    const cols=[...new Set(records.map(cell=>Number(cell.com_percent)))].sort((a,b)=>a-b).map(String);
-    const rows=[...new Set(records.map(cell=>Number(cell.com_point)))].sort((a,b)=>a-b).map(String);
+    const cols=[...new Set(records.map(cell=>Number(cell.percentage)))].sort((a,b)=>a-b).map(String);
+    const rows=[...new Set(records.map(cell=>Number(cell.point)))].sort((a,b)=>a-b).map(String);
     const cells=Array.from({length:rows.length},()=>Array(cols.length).fill(""));
     const colIndex=new Map(cols.map((value,index)=>[Number(value),index]));
     const rowIndex=new Map(rows.map((value,index)=>[Number(value),index]));
     for(const record of records){
-      const row=rowIndex.get(Number(record.com_point));
-      const col=colIndex.get(Number(record.com_percent));
-      if(row!==undefined&&col!==undefined)cells[row][col]=String(record.value);
+      const row=rowIndex.get(Number(record.point));
+      const col=colIndex.get(Number(record.percentage));
+      if(row!==undefined&&col!==undefined)cells[row][col]=String(record.commission);
     }
     return {cols,rows,cells};
   },
@@ -176,17 +200,17 @@ const api={
       if(!Number.isInteger(point)||point<0)throw new Error("Point thresholds must be non-negative whole numbers");
       if(!Number.isFinite(percent)||percent<0)throw new Error("Percent thresholds must be non-negative numbers");
       if(!Number.isInteger(commission))throw new Error("Commission values must be whole numbers");
-      data.push({com_point:point,com_percent:percent,value:commission});
+      data.push({point:point,percentage:percent,commission:commission});
     }));
     const result=await requestBackend("/commission/table",{method:"PUT",body:JSON.stringify({data})});
     const records=result.data||[];
     if(records.length===0)return null;
-    const cols=[...new Set(records.map(cell=>Number(cell.com_percent)))].sort((a,b)=>a-b).map(String);
-    const rows=[...new Set(records.map(cell=>Number(cell.com_point)))].sort((a,b)=>a-b).map(String);
+    const cols=[...new Set(records.map(cell=>Number(cell.percentage)))].sort((a,b)=>a-b).map(String);
+    const rows=[...new Set(records.map(cell=>Number(cell.point)))].sort((a,b)=>a-b).map(String);
     const cells=Array.from({length:rows.length},()=>Array(cols.length).fill(""));
     const colIndex=new Map(cols.map((value,index)=>[Number(value),index]));
     const rowIndex=new Map(rows.map((value,index)=>[Number(value),index]));
-    for(const record of records)cells[rowIndex.get(Number(record.com_point))][colIndex.get(Number(record.com_percent))]=String(record.value);
+    for(const record of records)cells[rowIndex.get(Number(record.point))][colIndex.get(Number(record.percentage))]=String(record.commission);
     return {cols,rows,cells};
   },
   async commissionSettings(){
@@ -196,6 +220,10 @@ const api={
       period:String(result.data?.period??"")
     };
   },
+  async dashboardSummary(userID){
+    const result=await requestBackend(`/dashboard/summary?user_id=${encodeURIComponent(userID)}`);
+    return result.data;
+  },
   async saveSettings(s){
     return requestBackend("/commission/settings",{method:"PUT",body:JSON.stringify({target:String(s.target),period:String(s.period)})});
   },
@@ -204,8 +232,12 @@ const api={
     const result=await requestBackend(`/selling-cases${query}`);
     return result.data||[];
   },
-  async reports(){
-    const result=await requestBackend("/reports");
+  async reports(summary=false,appointmentID=null){
+    const params=new URLSearchParams();
+    if(summary)params.set("summary","true");
+    if(appointmentID)params.set("appointment_id",String(appointmentID));
+    const query=params.toString()?`?${params}`:"";
+    const result=await requestBackend(`/reports${query}`);
     return result.data||[];
   },
   async saveReport(report){
@@ -215,10 +247,19 @@ const api={
     })});
   },
   // Demo storage for contracts until the backend has a contract endpoint.
-  async packages(){return copy(db.packages||DEFAULTS.packages)},
+  async packages(){
+    const result=await requestBackend("/insurance/packages");
+    return result.data||[];
+  },
   async contracts(){return copy(db.contracts||[])},
   async saveContract(c){
     db.contracts=db.contracts||[];
+    const existing=db.contracts.findIndex(item=>Number(item.insurance_id)===Number(c.insurance_id));
+    if(existing>=0){
+      db.contracts[existing]={...db.contracts[existing],...c};
+      persist();
+      return {contract_id:db.contracts[existing].contract_id};
+    }
     const contract_id=Math.max(0,...db.contracts.map(x=>x.contract_id))+1;
     db.contracts.push({...c,contract_id});persist();
     return {contract_id};

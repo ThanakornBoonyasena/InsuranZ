@@ -1,9 +1,13 @@
 // ---- Appointment ----
-const now=new Date();let calY=now.getFullYear(),calM=now.getMonth(),ap=null,apSaved="",appointments=[],customers=[],packageNames=[],sellingCases=[];
+const now=new Date();let calY=now.getFullYear(),calM=now.getMonth(),ap=null,apSaved="",appointments=[],customers=[],packageNames=[];
 const iso=(y,m,d)=>`${y}-${String(m+1).padStart(2,"0")}-${String(d).padStart(2,"0")}`;
 const todayKey=()=>{const today=new Date();return iso(today.getFullYear(),today.getMonth(),today.getDate())};
 const jc=o=>JSON.parse(JSON.stringify(o));
 function localDateTime(value){const date=new Date(value);return `${iso(date.getFullYear(),date.getMonth(),date.getDate())}T${String(date.getHours()).padStart(2,"0")}:${String(date.getMinutes()).padStart(2,"0")}`}
+function todayKey(){const date=new Date();return iso(date.getFullYear(),date.getMonth(),date.getDate())}
+function appointmentMinDate(){return ap.id===null?`${todayKey()}T00:00`:""}
+function thailandDateKey(value){const parts=new Intl.DateTimeFormat("en-CA",{timeZone:"Asia/Bangkok",year:"numeric",month:"2-digit",day:"2-digit"}).formatToParts(new Date(value));const part=type=>parts.find(item=>item.type===type)?.value||"";return part("year")+"-"+part("month")+"-"+part("day")}
+function canAbortAppointment(){if(ap.id===null)return false;const saved=JSON.parse(apSaved);return thailandDateKey(saved.appointment_date)>=thailandDateKey(new Date())}
 function localDateKey(value){const date=new Date(value);return iso(date.getFullYear(),date.getMonth(),date.getDate())}
 function localTime(value){return new Date(value).toLocaleTimeString("en-GB",{hour:"2-digit",minute:"2-digit"})}
 function calMove(n){calM+=n;if(calM<0){calM=11;calY--}if(calM>11){calM=0;calY++}render()}
@@ -39,9 +43,9 @@ function drawAppt(){
   const minimumDay=ap.id===null||currentDay>=todayKey()?todayKey():currentDay;
   $("#modal").innerHTML=`<h1>${ap.id===null?"New appointment":"Appointment"}</h1><div class="cols"><div>
   <label>Customer</label><select value="${esc(ap.customer_id)}" onchange="ap.customer_id=this.value;ap.customer_name=customers.find(c=>c.customer_id===this.value)?.customer_name||'';drawActs()">${customers.map(c=>`<option value="${esc(c.customer_id)}" ${String(c.customer_id)===String(ap.customer_id)?"selected":""}>${esc(c.customer_name)}</option>`).join("")}</select>
-  <label>Selling case</label><select onchange="ap.sell_case_id=this.value?Number(this.value):null;drawActs()"><option value="">Not assigned</option>${sellingCases.map(item=>`<option value="${item.sell_case_id}" ${Number(item.sell_case_id)===Number(ap.sell_case_id)?"selected":""}>Case #${item.sell_case_id} · ${esc(item.case_status)}</option>`).join("")}</select>
   <label>Assigned user ID</label><input value="${esc(ap.user_id??store.get("user_id")??"")}" readonly>
   <label>Date and time</label><input type="datetime-local" min="${minimumDay}T00:00" value="${localDateTime(ap.appointment_date)}" oninput="ap.appointment_date=this.value;drawActs()" onchange="ap.appointment_date=this.value;drawActs()">
+  <label>Date and time</label><input type="datetime-local" min="${appointmentMinDate()}" value="${localDateTime(ap.appointment_date)}" oninput="ap.appointment_date=this.value;drawActs()" onchange="ap.appointment_date=this.value;drawActs()">
   <label>Packages to discuss</label><div class="muted" style="font-size:12px;margin-bottom:6px">Choose one or more packages from the list.</div><div class="package-picker"><div class="tagbox" id="tagbox" onclick="$('#tagin').focus()">${tagsInner()}</div><div class="package-options" id="package-options" role="listbox" hidden></div></div><div class="tagfoot"><span class="muted" id="tagcount">${tagCount()}</span><button class="btn bad" onclick="clearTags()">Remove All</button></div>
   <label>Location</label><input value="${esc(ap.location)}" oninput="ap.location=this.value;drawActs()">
   </div><div>${ap.id===null?"":repsHTML()}</div></div><div class="actions" id="apacts"></div>`;
@@ -49,7 +53,10 @@ function drawAppt(){
 }
 function drawActs(){
   const dirty=JSON.stringify(ap)!==apSaved;
-  $("#apacts").innerHTML=ap.id===null?'<button class="btn" onclick="closeModal()">Cancel</button><button class="btn ok" onclick="saveAppt()">Make</button>':`${dirty?'<button class="btn ok" onclick="saveAppt()">Save</button>':""}<button class="btn bad" onclick="abortAppt()">Abort</button>`;
+  const actions=[];
+  if(ap.id===null)actions.push('<button class="btn" onclick="closeModal()">Cancel</button>','<button class="btn ok" onclick="saveAppt()">Make</button>');
+  else{if(dirty)actions.push('<button class="btn ok" onclick="saveAppt()">Save</button>');if(canAbortAppointment())actions.push('<button class="btn bad" onclick="abortAppt()">Abort</button>')}
+  $("#apacts").innerHTML=actions.join("");
 }
 const tagCount=()=>`${ap.packages.length} package${ap.packages.length===1?"":"s"} added`;
 const tagsInner=()=>ap.packages.map((p,i)=>`<span class="chip">${esc(p)}<button type="button" title="Remove ${esc(p)}" aria-label="Remove ${esc(p)}" onclick="event.stopPropagation();rmTag(${i})">×</button></span>`).join("")+`<input id="tagin" autocomplete="off" placeholder="Choose a package..." aria-label="Search packages to discuss" onfocus="showPackageOptions()" oninput="drawPackageOptions()" onblur="setTimeout(hidePackageOptions,150)" onkeydown="tagKey(event,this)">`;
@@ -121,6 +128,9 @@ async function saveAppt(){
       showToast("Appointments cannot be moved to a past date.");
       return;
     }
+  if(ap.id===null&&ap.appointment_date.slice(0,10)<todayKey()){
+    alert("Appointments cannot be scheduled before today's date.");
+    return;
   }
   try{
     const result=await api.saveAppointment(ap);
