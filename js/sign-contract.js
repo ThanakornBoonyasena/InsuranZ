@@ -1,6 +1,6 @@
-// Sign Contract (broker). Edited insurance is listed with a Sign button; "+" starts a new contract.
+﻿// Sign Contract (broker). Edited insurance is listed with a Sign button; "+" starts a new contract.
 // Signature image and presentation metadata are retained in local demo storage.
-const baht=n=>"฿"+Number(n||0).toLocaleString();
+const baht=n=>"à¸¿"+Number(n||0).toLocaleString();
 let CC={customers:[],packages:[]},cf=null;
 
 function ageFromDOB(value){
@@ -30,18 +30,12 @@ async function signContractPage(){
   const rows=edited.map(i=>{
     const name=i.customer_name||i.customer?.customer_name||"-";
     return `<div class="card row ${openId===i.insurance_id?"open":""}" data-contract-id="${i.insurance_id}">
-      <div class="row-head" onclick="toggleSignContract(${i.insurance_id})">
-        <div><b>#${i.insurance_id}</b></div>
-        <div>${esc(name)}</div>
-        <div class="muted">${fmt(i.sign_date)}</div>
+      <div class="row-head" onclick="toggleSignContract(${i.insurance_id})"><div><b>#${i.insurance_id}</b></div><div>${esc(name)}</div><div class="muted">${fmt(i.sign_date)}</div>
         <div class="btns" onclick="event.stopPropagation()">${discarded.includes(i.insurance_id)?'<span class="s-bad" style="font-size:13px;padding:0 8px">Discarded</span>':`<button class="btn" onclick="openContract(${i.insurance_id})">Sign again</button>`}</div>
-      </div>
-      <div class="detail" id="contract-detail-${i.insurance_id}"></div>
-    </div>`;
+      </div><div class="detail" id="contract-detail-${i.insurance_id}"></div></div>`;
   }).join("");
   return `<div class="calhead"><h1>Sign Contract</h1><span style="flex:1"></span><button class="add" style="width:44px;height:36px" title="New contract" onclick="openContract()">+</button></div>${rows||'<div class="card pad">No edited insurance to sign.</div>'}`;
 }
-
 async function openContract(insId){
   try{
     const userID=currentBrokerUserID();
@@ -80,7 +74,7 @@ async function toggleSignContract(id){
   detail.innerHTML='<span class="muted">Loading contract details...</span>';
   try{
     const record=await loadInsuranceDetail(id,currentBrokerUserID());
-    if(openId===id)detail.innerHTML=`<div><b>Payment</b>${Number(record.package?.package_price||0).toLocaleString()} every ${record.package?.payment_period||"-"} month(s)</div><div style="grid-column:1/-1"><b>Condition</b>${esc(record.additional_detail)||"—"}</div>`;
+    if(openId===id)detail.innerHTML=`<div><b>Payment</b>${Number(record.package?.package_price||0).toLocaleString()} every ${record.package?.payment_period||"-"} month(s)</div><div style="grid-column:1/-1"><b>Condition</b>${esc(record.additional_detail)||"â€”"}</div>`;
   }catch(error){if(openId===id)detail.innerHTML=`<span class="s-bad">${esc(error.message||"Unable to load contract details")}</span>`}
 }
 
@@ -95,7 +89,7 @@ function formHTML(){
   return `<h1>New contract</h1>
   <div class="sec"><h2>1. Customer</h2>
     <select onchange="cf.customerId=this.value">
-      <option value="">Select customer…</option>
+      <option value="">Select customerâ€¦</option>
       ${CC.customers.map(c=>`<option value="${esc(String(c.customer_id))}" ${String(c.customer_id)===String(cf.customerId)?"selected":""}>${esc(c.customer_name)}</option>`).join("")}
     </select></div>
   <div class="sec"><h2>2. Guarantor information</h2><div class="g2">
@@ -104,7 +98,7 @@ function formHTML(){
   <div class="sec"><h2>3. Packages</h2>
     ${CC.packages.map(p=>{const on=cf.pkgIds.includes(p.package_id);return `<div class="pkg">
       <label class="chk"><input type="checkbox" ${on?"checked":""} onchange="togglePkg(${p.package_id},this.checked)">${esc(p.package_name)}</label>
-      ${on?`<input class="pkgsum" inputmode="numeric" placeholder="Claim (฿)" value="${esc(cf.claims[p.package_id]||"")}" oninput="this.value=this.value.replace(/[^0-9]/g,'');cf.claims[${p.package_id}]=this.value">`:""}
+      ${on?`<input class="pkgsum" inputmode="numeric" placeholder="Claim (à¸¿)" value="${esc(cf.claims[p.package_id]||"")}" oninput="this.value=this.value.replace(/[^0-9]/g,'');cf.claims[${p.package_id}]=this.value">`:""}
     </div>`}).join("")}
   </div>
   <p class="s-bad" id="cerr"></p>
@@ -132,7 +126,7 @@ function contractNext(){
 }
 
 function renderPackageCostRows(calc){
-  if(!calc.items.length)return "<tr><td>No package</td><td>—</td></tr>";
+  if(!calc.items.length)return "<tr><td>No package</td><td>â€”</td></tr>";
   return calc.items.map(item=>{
     const periodYears=item.periodMonths/12;
     const periodLabel=Number.isInteger(periodYears)?`${periodYears} year(s)`:`${item.periodMonths} month(s)`;
@@ -148,14 +142,14 @@ function renderPackageCostRows(calc){
 function summaryHTML(){
   const c=CC.customers.find(x=>String(x.customer_id)===String(cf.customerId))||{};
   const calc=calcContract(CC.packages.filter(p=>cf.pkgIds.includes(p.package_id)),cf.claims);
-  const kv=(k,v,wide)=>`<div${wide?' style="grid-column:1/-1"':""}><b>${esc(k)}</b><span>${esc(v||"—")}</span></div>`;
+  const kv=(k,v,wide)=>`<div${wide?' style="grid-column:1/-1"':""}><b>${esc(k)}</b><span>${esc(v||"â€”")}</span></div>`;
   const jobs=Array.isArray(c.jobs)?c.jobs:[];
   const jobsHTML=jobs.length?jobs.map(job=>`<div class="customer-job"><div class="customer-job-fields">
-    <div><b>Job name</b>${esc(job.job_name||"—")}</div>
+    <div><b>Job name</b>${esc(job.job_name||"â€”")}</div>
     <div><b>Salary per month</b>${baht(job.salary_per_month)}</div>
-    <div><b>Location</b>${esc(job.location||"—")}</div>
-    <div><b>Job type</b>${esc(job.job_type||"—")}</div>
-  </div></div>`).join(""):'<div class="customer-job">—</div>';
+    <div><b>Location</b>${esc(job.location||"â€”")}</div>
+    <div><b>Job type</b>${esc(job.job_type||"â€”")}</div>
+  </div></div>`).join(""):'<div class="customer-job">â€”</div>';
   return `<h1>${cf.readonly?"Re-sign contract":"Contract summary"}</h1>
   <div class="sec"><h2>Customer</h2><div class="sum">
     ${kv("Name",c.customer_name)}${kv("Age",ageFromDOB(c.customer_dob)??"")}${kv("Customer ID",c.customer_id)}${kv("Telephone number",c.telephone_number)}
@@ -169,13 +163,13 @@ function summaryHTML(){
     <table class="cost">
       ${renderPackageCostRows(calc)}
     </table></div>
-  <div class="sec"><h2>Condition</h2><p>${esc(cf.condition||"—")}</p></div>
+  <div class="sec"><h2>Condition</h2><p>${esc(cf.condition||"â€”")}</p></div>
   <div class="sec"><h2>Customer signature</h2>
     <p class="muted">Draw your signature in the box to enable the Sign button.</p>
     <canvas id="sig" width="720" height="150"></canvas>
     <div class="actions" style="margin-top:6px"><button class="btn" onclick="clearSig()">Clear signature</button></div></div>
   <div class="actions" id="sumacts">${cf.readonly?'<button class="btn bad" onclick="askDiscard()">Discard</button><button class="btn" onclick="closeModal()">Cancel</button>':'<button class="btn" onclick="cf.step=1;drawContract()">Back</button>'}<button class="btn ok" id="signbtn" disabled onclick="signContract()">${cf.readonly?"Sign again":"Create insurance"}</button></div>
-  <div class="actions" id="discardask" style="display:none"><span class="muted" style="margin-right:auto;align-self:center">Discard this contract? This can’t be undone.</span><button class="btn" onclick="cancelDiscard()">No</button><button class="btn bad" onclick="discardContract()">Yes, discard</button></div>`;
+  <div class="actions" id="discardask" style="display:none"><span class="muted" style="margin-right:auto;align-self:center">Discard this contract? This canâ€™t be undone.</span><button class="btn" onclick="cancelDiscard()">No</button><button class="btn bad" onclick="discardContract()">Yes, discard</button></div>`;
 }
 
 function askDiscard(){$("#sumacts").style.display="none";$("#discardask").style.display="flex"}
@@ -242,7 +236,7 @@ async function signContract(){
 }
 
 async function render(){
-  $("#main").innerHTML='<h1>Sign Contract</h1><div class="card pad">Loading…</div>';
+  $("#main").innerHTML='<h1>Sign Contract</h1><div class="card pad">Loadingâ€¦</div>';
   try{
     $("#main").innerHTML=await signContractPage();
   }catch(error){
@@ -252,3 +246,6 @@ async function render(){
 
 mountNav("sign-contract");
 render();
+
+
+
