@@ -8,7 +8,7 @@ const bankSearchFields=[
   {key:"customer_gender",label:"Gender",type:"select",optionsKey:"gender"},
   {key:"customer_sex",label:"Sex",type:"select",optionsKey:"sex"},
   {key:"age",label:"Age",type:"number",defaultOp:"Any"},
-  {key:"salary",label:"Salary",type:"number",defaultOp:"Any"}
+  {key:"salary",label:"Monthly salary",type:"number",defaultOp:"Any"}
 ];
 let bankSearchCriteria=Object.fromEntries(bankSearchFields.map(field=>[field.key,{open:false,op:field.defaultOp||"=",value:""}]));
 const customerFilterFields=[
@@ -16,15 +16,18 @@ const customerFilterFields=[
   {key:"customer_gender",label:"Gender",type:"select"},
   {key:"customer_sex",label:"Sex",type:"select"},
   {key:"customer_age",label:"Age",type:"number"},
-  {key:"salary",label:"Salary",type:"number",step:"any"}
+  {key:"salary_per_month",label:"Yearly salary",type:"number",step:"any"}
 ];
 
 async function customerPage(){
-  const customers=await api.customerRecords(true);
+  const customers=await api.customerRecords();
   saCustomers=customers;
   const matches=customers.filter(customer=>Object.entries(customerFilters).every(([key,filter])=>{
     const field=customerFilterFields.find(item=>item.key===key);
-    const raw=customer[key];
+    const raw=key==="salary_per_month"&&customer.salary_per_month!=null
+      ? Number(customer.salary_per_month)*12
+      : customer[key];
+    if(!field)return true;
     if(raw===null||raw===undefined||raw==="")return false;
     if(field.type==="number"){
       const actual=Number(raw),expected=Number(filter.value);
@@ -38,14 +41,6 @@ async function customerPage(){
     const actual=String(raw).toLocaleLowerCase(),expected=String(filter.value).toLocaleLowerCase();
     return filter.op==="="?actual===expected:actual.includes(expected);
   }));
-  const list=matches.map(customer=>`<div class="card row ${openId==="c"+customer.customer_id?"open":""}">
-    <div class="row-head" style="grid-template-columns:1.5fr 1fr 1fr" onclick="toggle('c${customer.customer_id}')">
-    const matches=ageFilter?customers.filter(customer=>{
-    const age=Number(customer.customer_age);
-    if(!Number.isFinite(age))return false;
-    const value=ageFilter.value;
-    return ageFilter.op==="<"?age<value:ageFilter.op===">"?age>value:age===value;
-  }):customers;
   const list=matches.map(customer=>`<div class="card row customer-card ${openId==="c"+customer.customer_id?"open":""}" data-customer-id="${esc(customer.customer_id)}">
     <div class="row-head" style="grid-template-columns:1.5fr 1fr 1fr" onclick="toggleCustomer('${esc(customer.customer_id)}')">
       <div><b>${esc(customer.customer_name)}</b></div>
@@ -55,7 +50,7 @@ async function customerPage(){
     <div class="detail">
       <div><b>Customer ID</b>${customer.customer_id}</div>
       <div><b>Telephone number</b>${esc(customer.telephone_number||"-")}</div>
-      <div><b>Salary</b>${customer.salary==null?"—":Number(customer.salary).toLocaleString("en")}</div>
+      <div><b>Yearly salary</b>${customer.salary_per_month==null?"—":(Number(customer.salary_per_month)*12).toLocaleString("en")}</div>
       <div><b>Email</b>${esc(customer.customer_email||"—")}</div>
       <div><b>Address</b>${esc(customer.customer_address||"—")}</div>
       <div><b>Nationality</b>${esc(customer.customer_nationality||"—")}</div>
@@ -78,6 +73,10 @@ function customerFilterForm(){
     const active=customerFilters[field.key];
     return [field.key,{open:Boolean(active),op:active?.op||defaultFilterOperator(field),value:active?.value??""}];
   }));
+  drawCust();
+  $("#overlay").classList.add("show");
+}
+
 const customerDetailsCache=new Map();
 function customerDetailHTML(customer){
   return `<div><b>Customer ID</b>${esc(customer.customer_id)}</div>

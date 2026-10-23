@@ -20,9 +20,9 @@ async function requestBank(path){
 const copy=o=>JSON.parse(JSON.stringify(o));
 const DEFAULTS = {
   customers: [
-    {customer_id:1,customer_name:"Somchai Prasert",telephone_number:"000-000-0001",customer_email:"somchai@example.com",customer_address:"12 Sukhumvit Road, Bangkok",customer_gender:"Male",customer_sex:"Male",salary:45000,job_description:"Software engineer",customer_dob:"1984-04-12T00:00:00",create_timestamp:"2026-01-12T09:30",health_info:"Non-smoker, mild hypertension"},
-    {customer_id:2,customer_name:"Nattaya Wong",telephone_number:"000-000-0002",customer_email:"nattaya@example.com",customer_address:"88 Rattanathibet Road, Nonthaburi",customer_gender:"Female",customer_sex:"Female",salary:38000,job_description:"Marketing specialist",customer_dob:"1997-06-23T00:00:00",create_timestamp:"2026-03-02T14:10",health_info:"No known conditions"},
-    {customer_id:3,customer_name:"Arthit Boonmee",telephone_number:"000-000-0003",customer_email:"arthit@example.com",customer_address:"45 Nimmanhaemin Road, Chiang Mai",customer_gender:"Male",customer_sex:"Male",salary:72000,job_description:"Business owner",customer_dob:"1971-09-07T00:00:00",create_timestamp:"2025-11-20T11:00",health_info:"Type 2 diabetes"}
+    {customer_id:1,customer_name:"Somchai Prasert",telephone_number:"000-000-0001",customer_email:"somchai@example.com",customer_address:"12 Sukhumvit Road, Bangkok",customer_gender:"Male",customer_sex:"Male",salary_per_month:45000,job_description:"Software engineer",customer_dob:"1984-04-12T00:00:00",create_timestamp:"2026-01-12T09:30",health_info:"Non-smoker, mild hypertension"},
+    {customer_id:2,customer_name:"Nattaya Wong",telephone_number:"000-000-0002",customer_email:"nattaya@example.com",customer_address:"88 Rattanathibet Road, Nonthaburi",customer_gender:"Female",customer_sex:"Female",salary_per_month:38000,job_description:"Marketing specialist",customer_dob:"1997-06-23T00:00:00",create_timestamp:"2026-03-02T14:10",health_info:"No known conditions"},
+    {customer_id:3,customer_name:"Arthit Boonmee",telephone_number:"000-000-0003",customer_email:"arthit@example.com",customer_address:"45 Nimmanhaemin Road, Chiang Mai",customer_gender:"Male",customer_sex:"Male",salary_per_month:72000,job_description:"Business owner",customer_dob:"1971-09-07T00:00:00",create_timestamp:"2025-11-20T11:00",health_info:"Type 2 diabetes"}
   ],
   insurances: [
     {insurance_id:1001,customer_id:1,package_id:1,broker:"B-204",selling_case:"Referral",status:null,sign_date:"2026-09-14T10:00",additional_detail:"Family coverage add-on requested."},
@@ -56,7 +56,7 @@ db=db||copy(DEFAULTS);
 for(const customer of db.customers||[]){
   if(!customer.telephone_number)customer.telephone_number=`000-000-${String(customer.customer_id).padStart(4,"0")}`;
   const mockCustomer=DEFAULTS.customers.find(item=>item.customer_id===customer.customer_id);
-  if(mockCustomer)for(const field of ["salary","job_description","customer_gender","customer_sex","customer_dob","customer_email","customer_address"]){
+  if(mockCustomer)for(const field of ["salary_per_month","job_description","customer_gender","customer_sex","customer_dob","customer_email","customer_address"]){
     if(customer[field]===undefined)customer[field]=mockCustomer[field];
   }
 }

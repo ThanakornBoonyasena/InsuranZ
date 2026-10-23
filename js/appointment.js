@@ -1,7 +1,6 @@
 // ---- Appointment ----
 const now=new Date();let calY=now.getFullYear(),calM=now.getMonth(),ap=null,apSaved="",appointments=[],customers=[],packageNames=[];
 const iso=(y,m,d)=>`${y}-${String(m+1).padStart(2,"0")}-${String(d).padStart(2,"0")}`;
-const todayKey=()=>{const today=new Date();return iso(today.getFullYear(),today.getMonth(),today.getDate())};
 const jc=o=>JSON.parse(JSON.stringify(o));
 function localDateTime(value){const date=new Date(value);return `${iso(date.getFullYear(),date.getMonth(),date.getDate())}T${String(date.getHours()).padStart(2,"0")}:${String(date.getMinutes()).padStart(2,"0")}`}
 function todayKey(){const date=new Date();return iso(date.getFullYear(),date.getMonth(),date.getDate())}
@@ -39,12 +38,9 @@ function apptForm(id,day){
 }
 function drawAppt(){
   $("#modal").className="card modal wide";
-  const currentDay=localDateKey(ap.appointment_date);
-  const minimumDay=ap.id===null||currentDay>=todayKey()?todayKey():currentDay;
   $("#modal").innerHTML=`<h1>${ap.id===null?"New appointment":"Appointment"}</h1><div class="cols"><div>
   <label>Customer</label><select value="${esc(ap.customer_id)}" onchange="ap.customer_id=this.value;ap.customer_name=customers.find(c=>c.customer_id===this.value)?.customer_name||'';drawActs()">${customers.map(c=>`<option value="${esc(c.customer_id)}" ${String(c.customer_id)===String(ap.customer_id)?"selected":""}>${esc(c.customer_name)}</option>`).join("")}</select>
   <label>Assigned user ID</label><input value="${esc(ap.user_id??store.get("user_id")??"")}" readonly>
-  <label>Date and time</label><input type="datetime-local" min="${minimumDay}T00:00" value="${localDateTime(ap.appointment_date)}" oninput="ap.appointment_date=this.value;drawActs()" onchange="ap.appointment_date=this.value;drawActs()">
   <label>Date and time</label><input type="datetime-local" min="${appointmentMinDate()}" value="${localDateTime(ap.appointment_date)}" oninput="ap.appointment_date=this.value;drawActs()" onchange="ap.appointment_date=this.value;drawActs()">
   <label>Packages to discuss</label><div class="muted" style="font-size:12px;margin-bottom:6px">Choose one or more packages from the list.</div><div class="package-picker"><div class="tagbox" id="tagbox" onclick="$('#tagin').focus()">${tagsInner()}</div><div class="package-options" id="package-options" role="listbox" hidden></div></div><div class="tagfoot"><span class="muted" id="tagcount">${tagCount()}</span><button class="btn bad" onclick="clearTags()">Remove All</button></div>
   <label>Location</label><input value="${esc(ap.location)}" oninput="ap.location=this.value;drawActs()">
@@ -128,6 +124,7 @@ async function saveAppt(){
       showToast("Appointments cannot be moved to a past date.");
       return;
     }
+  }
   if(ap.id===null&&ap.appointment_date.slice(0,10)<todayKey()){
     alert("Appointments cannot be scheduled before today's date.");
     return;
