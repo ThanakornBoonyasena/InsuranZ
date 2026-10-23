@@ -1,25 +1,20 @@
-async function insurancePage(){
+﻿async function insurancePage(){
   const list=(await api.insuranceRecords(null,true)).filter(i=>i.status!=="Edited");
   const rows=list.map(i=>{
     const customer=i.customer||{};
     const name=i.customer_name||customer.customer_name||"-";
     return `<article class="card row insurance-card ${openId===i.insurance_id?"open":""}" data-insurance-id="${i.insurance_id}">
       <div class="row-head insurance-row-head" onclick="toggleInsurance(${i.insurance_id})" aria-expanded="${openId===i.insurance_id}">
-        <div><b>#${i.insurance_id}</b></div>
-        <div class="insurance-customer">${esc(name)}</div>
-        <div class="muted">${fmt(i.sign_date)}</div>
+        <div><b>#${i.insurance_id}</b></div><div class="insurance-customer">${esc(name)}</div><div class="muted">${fmt(i.sign_date)}</div>
         <div class="btns insurance-actions" onclick="event.stopPropagation()">
           ${i.status==="Pending"?`<button class="btn ok" onclick="setStatus(${i.insurance_id},true)">Approve</button>`:""}
           ${i.status==="Pending"?`<button class="btn bad" onclick="setStatus(${i.insurance_id},false)">Deny</button>`:""}
           ${i.status==="Pending"?`<button class="btn" onclick="editForm(${i.insurance_id})">Edit</button>`:""}
         </div>
-      </div>
-      <div class="detail insurance-detail" id="insurance-detail-${i.insurance_id}"></div>
-    </article>`;
+      </div><div class="detail insurance-detail" id="insurance-detail-${i.insurance_id}"></div></article>`;
   }).join("");
   return `<section class="insurance-page"><h1>Insurance</h1><div class="insurance-list">${rows||'<div class="card pad">No insurance records found.</div>'}</div></section>`;
 }
-
 async function toggleInsurance(id){
   openId=openId===id?null:id;
   document.querySelectorAll(".insurance-card[data-insurance-id]").forEach(card=>{
@@ -89,3 +84,6 @@ async function render(){
 
 mountNav("insurance");
 render();
+
+
+

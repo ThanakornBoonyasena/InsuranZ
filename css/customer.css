@@ -1,2 +1,18 @@
-.crit{display:flex;gap:8px;align-items:center;margin-bottom:10px}.crit b{min-width:70px}.crit input.mod{background:color-mix(in srgb,var(--ok) 28%,transparent)}
+﻿.crit{display:flex;gap:8px;align-items:center;margin-bottom:10px}.crit b{min-width:70px}.crit input.mod{background:color-mix(in srgb,var(--ok) 28%,transparent)}
 .bank-candidate{display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--line)}.bank-candidate input[type=checkbox]{width:auto;flex:none}.modal:has(.bank-candidate){max-height:90vh;overflow:auto}
+.customer-page-head{display:flex;align-items:center;gap:12px;margin-bottom:12px}.customer-page-head h1{margin:0;flex:1}
+.customer-filter-toggle{margin-bottom:8px}
+.customer-filter-panel{display:block;margin-bottom:10px;padding:12px;border:1px solid var(--line);border-radius:4px;background:var(--card)}
+.customer-filter-panel[hidden]{display:none}
+.customer-filter-rule{display:grid;grid-template-columns:minmax(140px,1fr) minmax(130px,.75fr) minmax(140px,1fr) auto;gap:8px;align-items:center;margin-bottom:8px}
+.customer-filter-rule select,.customer-filter-rule input{min-width:0}
+.customer-gender-select{position:relative;min-width:0}
+.customer-gender-toggle{display:flex;align-items:center;justify-content:space-between;gap:8px;width:100%;min-height:38px;padding:8px 10px;border:1px solid var(--line);border-radius:3px;background:var(--bg);color:var(--text);font:inherit;text-align:left}
+.customer-gender-menu{position:absolute;top:calc(100% + 3px);left:0;right:0;z-index:15;max-height:220px;overflow-y:auto;overscroll-behavior:contain;border:1px solid var(--line);border-radius:3px;background:var(--card);box-shadow:0 10px 24px #0008}
+.customer-gender-menu button{display:block;width:100%;padding:6px 10px;border:0;background:transparent;color:var(--text);font:inherit;text-align:left}
+.customer-gender-menu button:hover,.customer-gender-menu button[aria-selected="true"]{background:color-mix(in srgb,var(--brand) 24%,var(--card))}
+.customer-filter-remove{width:38px;height:38px;padding:0}
+.customer-filter-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:8px}
+.customer-filter-count{margin:0 0 10px}
+@media(max-width:600px){.customer-filter-rule{grid-template-columns:minmax(0,1fr) auto;gap:6px}.customer-filter-rule>:nth-child(2),.customer-filter-rule>:nth-child(3){grid-column:1}.customer-filter-rule>:nth-child(4){grid-column:2;grid-row:1 / span 3}.customer-filter-actions{justify-content:space-between}}
+

@@ -1,4 +1,4 @@
-// ---- Report ----
+﻿// ---- Report ----
 const reportDetailsCache=new Map();
 
 function reportTimestamp(value){
@@ -11,15 +11,11 @@ async function reportPage(){
   const appointments=await api.reports(true);
   const list=appointments.map(a=>`<div class="card row report-card ${openId==="r"+a.appointment_id?"open":""}" data-appointment-id="${a.appointment_id}">
     <div class="row-head" style="grid-template-columns:1fr 1fr auto" onclick="toggleReport(${a.appointment_id})">
-      <div><b>${esc(a.customer_name)}</b></div>
-      <div class="muted">Appointment ${fmt(a.appointment_date)}</div>
+      <div><b>${esc(a.customer_name)}</b></div><div class="muted">Appointment ${fmt(a.appointment_date)}</div>
       <div class="muted">${a.report_count} report${a.report_count===1?"":"s"}</div>
-    </div>
-    <div class="detail" id="report-detail-${a.appointment_id}"></div>
-  </div>`).join("");
+    </div><div class="detail" id="report-detail-${a.appointment_id}"></div></div>`).join("");
   return `<h1>Report</h1>${list||'<p class="muted">No reports yet.</p>'}`;
 }
-
 async function toggleReport(id){
   const key="r"+id;
   openId=openId===key?null:key;
@@ -44,7 +40,9 @@ async function toggleReport(id){
 
 async function render(){
   $("#main").innerHTML='<h1>Report</h1><div class="card">Loading reports...</div>';
-  try{$("#main").innerHTML=await reportPage()}
+  try{
+    $("#main").innerHTML=await reportPage();
+  }
   catch(error){
     showToast(error.message||"Unable to load reports");
     $("#main").innerHTML=`<h1>Report</h1><div class="card">${esc(error.message||"Unable to load reports")}</div>`;
@@ -53,3 +51,7 @@ async function render(){
 
 mountNav("report");
 render();
+
+
+
+

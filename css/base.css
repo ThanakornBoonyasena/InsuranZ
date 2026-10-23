@@ -1,4 +1,4 @@
-:root{--bg:#1A181B;--card:#232024;--text:#FFF4E4;--muted:#a79f95;--line:#38343a;--brand:#CA2E55;--ok:#06D6A0;--bad:#CA2E55;--warn:#a79f95;--grad:#CA2E55;color-scheme:dark;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+﻿:root{--bg:#1A181B;--card:#232024;--text:#FFF4E4;--muted:#a79f95;--line:#38343a;--brand:#CA2E55;--ok:#06D6A0;--bad:#CA2E55;--warn:#a79f95;--grad:#CA2E55;color-scheme:dark;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
 *{box-sizing:border-box}html{scroll-padding-top:env(safe-area-inset-top,0px)}
 body{margin:0;min-height:100vh;background:var(--bg);color:var(--text);font:15px/1.5 "Oswald",system-ui,-apple-system,"Segoe UI",sans-serif}
 button{font:inherit;cursor:pointer}
@@ -45,3 +45,4 @@ input,select,textarea{width:100%;padding:8px 10px;border:1px solid var(--line);b
 @media(max-width:760px){.insurance-detail{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:420px){.insurance-detail{grid-template-columns:1fr}}
 @media(max-width:640px){.nav{gap:8px;padding:8px 10px}.profile span.n{display:none}.row-head{grid-template-columns:1fr auto}.row-head>:nth-child(3){display:none}}
+
