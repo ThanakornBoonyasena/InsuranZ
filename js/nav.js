@@ -3,8 +3,9 @@ const $=s=>document.querySelector(s);
 const esc=s=>String(s??"").replace(/[&<>\"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
 const fmt=d=>new Date(d).toLocaleDateString("en-GB",{day:"2-digit",month:"short",year:"numeric"});
 const store={get:k=>{try{return sessionStorage.getItem(k)}catch{return null}},set:(k,v)=>{try{sessionStorage.setItem(k,v)}catch{}},del:k=>{try{sessionStorage.removeItem(k)}catch{}}};
+const currentBrokerUserID=()=>store.get("user_id")||String(db.brokerProfile.id||"").match(/\d+$/)?.[0]||"";
 const role=store.get("role");
-const statusBadge=s=>s===true?'<span class="badge s-ok">Approved</span>':s===false?'<span class="badge s-bad">Denied</span>':'<span class="badge s-warn">Pending</span>';
+const statusBadge=s=>s===true||s==="Approve"?'<span class="badge s-ok">Approved</span>':s===false||s==="Deny"?'<span class="badge s-bad">Denied</span>':s==="Edited"?'<span class="badge">Edited</span>':'<span class="badge s-warn">Pending</span>';
 function insuranceDetailHTML(i){
   const customer=i.customer||{};
   const pkg=i.package||{};
@@ -12,16 +13,15 @@ function insuranceDetailHTML(i){
   const health=customer.health_info||i.health_info||"-";
   const healthDetail=customer.health_detail||i.health_detail||"-";
   const customerSince=customer.create_timestamp||i.customer_since||"";
-  const interval=i.payment_interval_month??i.payment_interval_months;
-  const payment=`${Number(i.payment_amount||0).toLocaleString()} every ${interval||"-"} month(s)`;
+  const payment=`${Number(pkg.package_price||0).toLocaleString()} every ${pkg.payment_period||"-"} month(s)`;
+  const sellingCase=i.selling_case_id?"#"+i.selling_case_id+" · "+(i.selling_case_status||""):(i.selling_case||"-");
   const packageExtra=[
     pkg.package_price!=null?`${Number(pkg.package_price).toLocaleString()} for ${pkg.payment_period||"-"} month(s)`:"",
     pkg.age_range?`Ages ${pkg.age_range}`:""
   ].filter(Boolean).join("; ");
   return `<div class="detail insurance-detail">
     <div><b>Status</b>${statusBadge(i.status)}</div>
-    <div><b>Type</b>${esc(i.type||"-")}</div>
-    <div><b>Selling case</b>${esc(i.selling_case||"-")}</div>
+    <div><b>Selling case</b>${esc(sellingCase)}</div>
     <div><b>Payment</b>${payment}</div>
     <div><b>Customer age</b>${age}</div>
     <div><b>Health info</b>${esc(health)}</div>
@@ -34,6 +34,15 @@ function insuranceDetailHTML(i){
     <div><b>Package detail</b>${esc(pkg.package_detail||i.package_detail||"-")}</div>
     <div><b>Detail</b>${esc(pkg.detail||i.package_description||packageExtra||"-")}</div>
   </div>`;
+}
+const insuranceDetailsCache=new Map();
+async function loadInsuranceDetail(id,userID){
+  const key=`${userID||"all"}:${id}`;
+  if(insuranceDetailsCache.has(key))return insuranceDetailsCache.get(key);
+  const record=await api.insuranceRecord(id,userID);
+  if(!record)throw new Error("Insurance record not found");
+  insuranceDetailsCache.set(key,record);
+  return record;
 }
 const okBadge=r=>r.is_successful?'<span class="badge s-ok">Successful</span>':'<span class="badge s-bad">Unsuccessful</span>';
 let openId=null;

@@ -5,7 +5,7 @@ let saCustomers=[];
 let bankMatches=[];
 
 async function customerPage(){
-  const customers=await api.customerRecords();
+  const customers=await api.customerRecords(true);
   saCustomers=customers;
   const matches=ageFilter?customers.filter(customer=>{
     const age=Number(customer.customer_age);
@@ -13,28 +13,45 @@ async function customerPage(){
     const value=ageFilter.value;
     return ageFilter.op==="<"?age<value:ageFilter.op===">"?age>value:age===value;
   }):customers;
-  const list=matches.map(customer=>`<div class="card row ${openId==="c"+customer.customer_id?"open":""}">
-    <div class="row-head" style="grid-template-columns:1.5fr 1fr 1fr" onclick="toggle('c${customer.customer_id}')">
+  const list=matches.map(customer=>`<div class="card row customer-card ${openId==="c"+customer.customer_id?"open":""}" data-customer-id="${esc(customer.customer_id)}">
+    <div class="row-head" style="grid-template-columns:1.5fr 1fr 1fr" onclick="toggleCustomer('${esc(customer.customer_id)}')">
       <div><b>${esc(customer.customer_name)}</b></div>
       <div class="muted">Age ${customer.customer_age??"—"}</div>
       <div class="muted">#${customer.customer_id}</div>
     </div>
-    <div class="detail">
-      <div><b>Customer ID</b>${customer.customer_id}</div>
-      <div><b>Telephone number</b>${esc(customer.telephone_number||"-")}</div>
-      <div><b>Email</b>${esc(customer.customer_email||"—")}</div>
-      <div><b>Address</b>${esc(customer.customer_address||"—")}</div>
-      <div><b>Nationality</b>${esc(customer.customer_nationality||"—")}</div>
-      <div><b>Gender</b>${esc(customer.customer_gender||"—")}</div>
-      <div><b>Sex</b>${esc(customer.customer_sex||"—")}</div>
-      <div><b>Date of birth</b>${customer.customer_dob?fmt(customer.customer_dob):"—"}</div>
-      <div><b>Customer since</b>${customer.create_timestamp?fmt(customer.create_timestamp):"—"}</div>
-      <div style="grid-column:1/-1"><b>Health condition</b>${esc(customer.health_info||"—")}</div>
-      <div style="grid-column:1/-1"><b>Health detail</b>${esc(customer.health_detail||"—")}</div>
-    </div>
+    <div class="detail" id="customer-detail-${esc(customer.customer_id)}"></div>
   </div>`).join("");
   const filterLabel=ageFilter?`Age ${ageFilter.op} ${ageFilter.value}`:"All customers";
   return `<div class="calhead"><h1>Customer</h1><span class="muted">${esc(filterLabel)} · ${matches.length} of ${customers.length} in sa</span><span style="flex:1"></span>${ageFilter?'<button class="btn" onclick="clearCustomerFilter()">Clear filter</button> ':""}<button class="btn" onclick="ageForm()">Filter</button><button class="add" style="width:44px;height:36px" title="Add bank customers" aria-label="Add bank customers" onclick="custForm()">+</button></div>${list||'<div class="card pad">No customer records found.</div>'}`;
+}
+
+const customerDetailsCache=new Map();
+function customerDetailHTML(customer){
+  return `<div><b>Customer ID</b>${esc(customer.customer_id)}</div>
+    <div><b>Telephone number</b>${esc(customer.telephone_number||"-")}</div>
+    <div><b>Email</b>${esc(customer.customer_email||"—")}</div>
+    <div><b>Address</b>${esc(customer.customer_address||"—")}</div>
+    <div><b>Nationality</b>${esc(customer.customer_nationality||"—")}</div>
+    <div><b>Gender</b>${esc(customer.customer_gender||"—")}</div>
+    <div><b>Sex</b>${esc(customer.customer_sex||"—")}</div>
+    <div><b>Date of birth</b>${customer.customer_dob?fmt(customer.customer_dob):"—"}</div>
+    <div><b>Customer since</b>${customer.create_timestamp?fmt(customer.create_timestamp):"—"}</div>
+    <div style="grid-column:1/-1"><b>Health condition</b>${esc(customer.health_info||"—")}</div>
+    <div style="grid-column:1/-1"><b>Health detail</b>${esc(customer.health_detail||"—")}</div>`;
+}
+async function toggleCustomer(id){
+  const key="c"+id;
+  openId=openId===key?null:key;
+  document.querySelectorAll(".customer-card").forEach(card=>card.classList.toggle("open",openId===key&&card.dataset.customerId===String(id)));
+  if(openId!==key)return;
+  const detail=document.getElementById(`customer-detail-${id}`);
+  if(!detail)return;
+  detail.innerHTML="<span class=muted>Loading customer details...</span>";
+  try{
+    let customer=customerDetailsCache.get(String(id));
+    if(!customer){customer=await api.customerRecord(id);if(!customer)throw new Error("Customer not found");customerDetailsCache.set(String(id),customer)}
+    if(openId===key)detail.innerHTML=customerDetailHTML(customer);
+  }catch(error){if(openId===key)detail.innerHTML=`<span class="s-bad">${esc(error.message||"Unable to load customer details")}</span>`}
 }
 
 const queryStr=()=>crit.age?.open&&crit.age.val!==""?`age${crit.age.op}${crit.age.val}`:"";

@@ -1,8 +1,5 @@
 // Sign Contract (broker). Edited insurance is listed with a Sign button; "+" starts a new contract.
-// Contracts are stored through api.saveContract (demo storage) until the backend has a contract endpoint.
-// Pricing below is a mock: premium per year = Sum Assured x rate (per package). Replace calcContract with the real rule.
-const PRICING={1:{rate:0.012,years:10},2:{rate:0.008,years:20},3:{rate:0.02,years:1}};
-const priceOf=p=>PRICING[p.package_id]||{rate:0.01,years:10};
+// Signature image and presentation metadata are retained in local demo storage.
 const baht=n=>"฿"+Number(n||0).toLocaleString();
 let CC={customers:[],packages:[]},cf=null;
 
@@ -16,30 +13,30 @@ function ageFromDOB(value){
   return age>=0?age:"";
 }
 
-function calcContract(pkgs,sums){
-  const items=pkgs.map(p=>{const {rate,years}=priceOf(p);const sum=+sums[p.package_id]||0;return {name:p.package_name,sum,yearly:Math.round(sum*rate),years}});
-  const yearly=items.reduce((a,i)=>a+i.yearly,0),years=Math.max(0,...items.map(i=>i.years));
-  return {items,yearly,monthly:Math.round(yearly/12),years,sum:items.reduce((a,i)=>a+i.sum,0),total:items.reduce((a,i)=>a+i.yearly*i.years,0)};
+function calcContract(pkgs,claims){
+  const items=pkgs.map(p=>{
+    const premiumPerMonth=Number(p.package_price)||0;
+    const periodMonths=Number(p.payment_period)||0;
+    return {packageID:p.package_id,name:p.package_name,claim:Number(claims[p.package_id])||0,
+      premiumPerMonth,premiumPerYear:premiumPerMonth*12,periodMonths,totalPayable:premiumPerMonth*periodMonths};
+  });
+  return {items,claim:items.reduce((total,item)=>total+item.claim,0)};
 }
 
 async function signContractPage(){
-  const [ins,contracts,discarded]=await Promise.all([api.insuranceRecords(),api.contracts(),api.discardedContracts()]);
-  const edited=ins.filter(i=>i.status===true);
+  const userID=currentBrokerUserID();
+  const [ins,discarded]=await Promise.all([api.insuranceRecords(userID,true),api.discardedContracts()]);
+  const edited=ins.filter(i=>i.status==="Edited");
   const rows=edited.map(i=>{
     const name=i.customer_name||i.customer?.customer_name||"-";
-    const signed=contracts.some(c=>c.insurance_id===i.insurance_id);
-    return `<div class="card row ${openId===i.insurance_id?"open":""}">
-      <div class="row-head" onclick="toggle(${i.insurance_id})">
+    return `<div class="card row ${openId===i.insurance_id?"open":""}" data-contract-id="${i.insurance_id}">
+      <div class="row-head" onclick="toggleSignContract(${i.insurance_id})">
         <div><b>#${i.insurance_id}</b></div>
         <div>${esc(name)}</div>
         <div class="muted">${fmt(i.sign_date)}</div>
-        <div class="btns" onclick="event.stopPropagation()">${signed?'<span class="s-ok" style="font-size:13px;padding:0 8px">Signed</span>':discarded.includes(i.insurance_id)?'<span class="s-bad" style="font-size:13px;padding:0 8px">Discarded</span>':`<button class="btn" onclick="openContract(${i.insurance_id})">Sign</button>`}</div>
+        <div class="btns" onclick="event.stopPropagation()">${discarded.includes(i.insurance_id)?'<span class="s-bad" style="font-size:13px;padding:0 8px">Discarded</span>':`<button class="btn" onclick="openContract(${i.insurance_id})">Sign again</button>`}</div>
       </div>
-      <div class="detail">
-        <div><b>Type</b>${esc(i.type||"-")}</div>
-        <div><b>Payment</b>${Number(i.payment_amount||0).toLocaleString()} every ${i.payment_interval_month||"-"} month(s)</div>
-        <div style="grid-column:1/-1"><b>Condition</b>${esc(i.additional_detail)||"—"}</div>
-      </div>
+      <div class="detail" id="contract-detail-${i.insurance_id}"></div>
     </div>`;
   }).join("");
   return `<div class="calhead"><h1>Sign Contract</h1><span style="flex:1"></span><button class="add" style="width:44px;height:36px" title="New contract" onclick="openContract()">+</button></div>${rows||'<div class="card pad">No edited insurance to sign.</div>'}`;
@@ -47,26 +44,44 @@ async function signContractPage(){
 
 async function openContract(insId){
   try{
-    const [customers,packages,ins]=await Promise.all([api.customerRecords(),api.packages(),api.insuranceRecords()]);
-    CC={customers,packages};
-    const i=insId?ins.find(x=>x.insurance_id===insId):null;
+    const userID=currentBrokerUserID();
+    const [customers,packages,i,contracts]=await Promise.all([api.customerRecords(),api.packages(),insId?api.insuranceRecord(insId,userID):Promise.resolve(null),api.contracts()]);
+    CC={customers,packages:i?[i.package]:packages};
     let cid=i&&(i.customer_id??i.customer?.customer_id);
     if((cid===undefined||cid===null||cid==="")&&i)cid=customers.find(c=>c.customer_name===(i.customer_name||i.customer?.customer_name))?.customer_id;
     if(i){
       // Existing contract: read-only summary + signature. Reads the contract data from the insurance record.
-      const ex=i.contract||i;
+      const previous=contracts.find(contract=>Number(contract.insurance_id)===Number(insId))||{};
+      const ex={...previous,...i.contract,...i};
+      const packageID=i.package_id??i.package?.package_id;
+      const savedGuarantor=i.guarantor_information&&Object.keys(i.guarantor_information).length
+        ?i.guarantor_information:ex.guarantor||{};
       cf={insId,customerId:String(cid??""),readonly:true,step:2,signed:false,
-        g:{name:"",age:"",job:"",address:"",relation:"",...(ex.guarantor||{})},
-        pkgIds:ex.package_ids||(i.package_id?[i.package_id]:[]),
-        sums:ex.sums||(ex.sum_assured&&i.package_id?{[i.package_id]:ex.sum_assured}:{})};
+        g:{name:"",age:"",job:"",address:"",relation:"",...savedGuarantor},
+        condition:i.additional_detail||"",
+        pkgIds:packageID?[Number(packageID)]:[],
+        claims:packageID?{[packageID]:Number(i.insurance_claim)||0}:{}};
     }else{
-      cf={insId:null,customerId:"",readonly:false,step:1,signed:false,g:{name:"",age:"",job:"",address:"",relation:""},pkgIds:[],sums:{}};
+      cf={insId:null,customerId:"",readonly:false,step:1,signed:false,g:{name:"",age:"",job:"",address:"",relation:""},condition:"",pkgIds:[],claims:{}};
     }
     drawContract();
     $("#overlay").classList.add("show");
   }catch(error){
     $("#main").innerHTML=`<h1>Sign Contract</h1><div class="card pad">${esc(error?.message||"Unable to open the contract form")}</div>`;
   }
+}
+
+async function toggleSignContract(id){
+  openId=openId===id?null:id;
+  document.querySelectorAll(".card.row[data-contract-id]").forEach(card=>card.classList.toggle("open",openId===id&&card.dataset.contractId===String(id)));
+  if(openId!==id)return;
+  const detail=document.getElementById(`contract-detail-${id}`);
+  if(!detail)return;
+  detail.innerHTML='<span class="muted">Loading contract details...</span>';
+  try{
+    const record=await loadInsuranceDetail(id,currentBrokerUserID());
+    if(openId===id)detail.innerHTML=`<div><b>Payment</b>${Number(record.package?.package_price||0).toLocaleString()} every ${record.package?.payment_period||"-"} month(s)</div><div style="grid-column:1/-1"><b>Condition</b>${esc(record.additional_detail)||"—"}</div>`;
+  }catch(error){if(openId===id)detail.innerHTML=`<span class="s-bad">${esc(error.message||"Unable to load contract details")}</span>`}
 }
 
 function drawContract(){
@@ -86,10 +101,10 @@ function formHTML(){
   <div class="sec"><h2>2. Guarantor information</h2><div class="g2">
     ${gf.map(([k,l])=>`<div><label>${l}</label><input ${k==="age"?'inputmode="numeric"':""} value="${esc(cf.g[k])}" oninput="${k==="age"?"this.value=this.value.replace(/[^0-9]/g,'');":""}cf.g.${k}=this.value"></div>`).join("")}
   </div></div>
-  <div class="sec"><h2>3. Packages and Sum Assured</h2>
+  <div class="sec"><h2>3. Packages</h2>
     ${CC.packages.map(p=>{const on=cf.pkgIds.includes(p.package_id);return `<div class="pkg">
       <label class="chk"><input type="checkbox" ${on?"checked":""} onchange="togglePkg(${p.package_id},this.checked)">${esc(p.package_name)}</label>
-      ${on?`<input class="pkgsum" inputmode="numeric" placeholder="Sum Assured (฿)" value="${esc(cf.sums[p.package_id]||"")}" oninput="this.value=this.value.replace(/[^0-9]/g,'');cf.sums[${p.package_id}]=this.value">`:""}
+      ${on?`<input class="pkgsum" inputmode="numeric" placeholder="Claim (฿)" value="${esc(cf.claims[p.package_id]||"")}" oninput="this.value=this.value.replace(/[^0-9]/g,'');cf.claims[${p.package_id}]=this.value">`:""}
     </div>`}).join("")}
   </div>
   <p class="s-bad" id="cerr"></p>
@@ -106,7 +121,7 @@ function contractNext(){
   if(!String(cf.customerId??"").trim())miss.push("customer");
   for(const k of ["name","age","job","address","relation"])if(!String(cf.g[k]).trim())miss.push("guarantor "+k);
   if(!cf.pkgIds.length)miss.push("a package");
-  for(const p of CC.packages)if(cf.pkgIds.includes(p.package_id)&&!(+cf.sums[p.package_id]>0))miss.push("Sum Assured for "+p.package_name);
+  for(const p of CC.packages)if(cf.pkgIds.includes(p.package_id)&&!(+cf.claims[p.package_id]>0))miss.push("Claim for "+p.package_name);
   if(miss.length){
     const error=$("#cerr");
     error.textContent="Please complete: "+miss.join(", ")+".";
@@ -116,32 +131,50 @@ function contractNext(){
   cf.step=2;cf.signed=false;drawContract();
 }
 
+function renderPackageCostRows(calc){
+  if(!calc.items.length)return "<tr><td>No package</td><td>—</td></tr>";
+  return calc.items.map(item=>{
+    const periodYears=item.periodMonths/12;
+    const periodLabel=Number.isInteger(periodYears)?`${periodYears} year(s)`:`${item.periodMonths} month(s)`;
+    return `<tr><td>Package</td><td>${esc(item.name)}</td></tr>
+      <tr><td>Claim</td><td>${baht(item.claim)}</td></tr>
+      <tr><td>Premium per year</td><td>${baht(item.premiumPerYear)}</td></tr>
+      <tr><td>Premium per month</td><td>${baht(item.premiumPerMonth)}</td></tr>
+      <tr><td>Payment period</td><td>${periodLabel}</td></tr>
+      <tr class="tot"><td>Total payable</td><td>${baht(item.totalPayable)}</td></tr>`;
+  }).join("");
+}
+
 function summaryHTML(){
   const c=CC.customers.find(x=>String(x.customer_id)===String(cf.customerId))||{};
-  const calc=calcContract(CC.packages.filter(p=>cf.pkgIds.includes(p.package_id)),cf.sums);
-  const kv=(k,v,wide)=>`<div${wide?' style="grid-column:1/-1"':""}><b>${k}</b>${esc(v||"—")}</div>`;
+  const calc=calcContract(CC.packages.filter(p=>cf.pkgIds.includes(p.package_id)),cf.claims);
+  const kv=(k,v,wide)=>`<div${wide?' style="grid-column:1/-1"':""}><b>${esc(k)}</b><span>${esc(v||"—")}</span></div>`;
+  const jobs=Array.isArray(c.jobs)?c.jobs:[];
+  const jobsHTML=jobs.length?jobs.map(job=>`<div class="customer-job"><div class="customer-job-fields">
+    <div><b>Job name</b>${esc(job.job_name||"—")}</div>
+    <div><b>Salary per month</b>${baht(job.salary_per_month)}</div>
+    <div><b>Location</b>${esc(job.location||"—")}</div>
+    <div><b>Job type</b>${esc(job.job_type||"—")}</div>
+  </div></div>`).join(""):'<div class="customer-job">—</div>';
   return `<h1>${cf.readonly?"Re-sign contract":"Contract summary"}</h1>
   <div class="sec"><h2>Customer</h2><div class="sum">
     ${kv("Name",c.customer_name)}${kv("Age",ageFromDOB(c.customer_dob)??"")}${kv("Customer ID",c.customer_id)}${kv("Telephone number",c.telephone_number)}
-    ${kv("Email",c.customer_email)}${kv("Address",c.customer_address)}${kv("Salary",c.salary?baht(c.salary):"")}${kv("Job description",c.job_description)}
+    ${kv("Email",c.customer_email)}${kv("Address",c.customer_address)}
     ${kv("Gender",c.customer_gender)}${kv("Sex",c.customer_sex)}${kv("Date of birth",c.customer_dob?fmt(c.customer_dob):"")}${kv("Customer since",c.create_timestamp?fmt(c.create_timestamp):"")}
     ${kv("Health condition",c.health_info)}${kv("Health detail",c.health_detail,true)}
   </div></div>
+  <div class="sec job-description"><h2>Job description</h2><div class="customer-job-list">${jobsHTML}</div></div>
   <div class="sec"><h2>Guarantor</h2><div class="sum">${kv("Name",cf.g.name)}${kv("Age",cf.g.age)}${kv("Job",cf.g.job)}${kv("Address",cf.g.address)}${kv("Relation",cf.g.relation)}</div></div>
   <div class="sec"><h2>Packages and cost</h2>
     <table class="cost">
-      ${calc.items.map(i=>`<tr><td>${esc(i.name)}<br><span class="muted">Sum Assured ${baht(i.sum)}</span></td><td>${baht(i.yearly)} / year</td></tr>`).join("")||'<tr><td>No package</td><td>—</td></tr>'}
-      <tr><td>Total Sum Assured</td><td>${baht(calc.sum)}</td></tr>
-      <tr><td>Premium per year</td><td>${baht(calc.yearly)}</td></tr>
-      <tr><td>Premium per month</td><td>${baht(calc.monthly)}</td></tr>
-      <tr><td>Payment period</td><td>${calc.years} year(s), paid monthly</td></tr>
-      <tr class="tot"><td>Total payable</td><td>${baht(calc.total)}</td></tr>
+      ${renderPackageCostRows(calc)}
     </table></div>
+  <div class="sec"><h2>Condition</h2><p>${esc(cf.condition||"—")}</p></div>
   <div class="sec"><h2>Customer signature</h2>
     <p class="muted">Draw your signature in the box to enable the Sign button.</p>
     <canvas id="sig" width="720" height="150"></canvas>
     <div class="actions" style="margin-top:6px"><button class="btn" onclick="clearSig()">Clear signature</button></div></div>
-  <div class="actions" id="sumacts">${cf.readonly?'<button class="btn bad" onclick="askDiscard()">Discard</button><button class="btn" onclick="closeModal()">Cancel</button>':'<button class="btn" onclick="cf.step=1;drawContract()">Back</button>'}<button class="btn ok" id="signbtn" disabled onclick="signContract()">Sign</button></div>
+  <div class="actions" id="sumacts">${cf.readonly?'<button class="btn bad" onclick="askDiscard()">Discard</button><button class="btn" onclick="closeModal()">Cancel</button>':'<button class="btn" onclick="cf.step=1;drawContract()">Back</button>'}<button class="btn ok" id="signbtn" disabled onclick="signContract()">${cf.readonly?"Sign again":"Create insurance"}</button></div>
   <div class="actions" id="discardask" style="display:none"><span class="muted" style="margin-right:auto;align-self:center">Discard this contract? This can’t be undone.</span><button class="btn" onclick="cancelDiscard()">No</button><button class="btn bad" onclick="discardContract()">Yes, discard</button></div>`;
 }
 
@@ -174,15 +207,33 @@ function clearSig(){
 
 async function signContract(){
   if(!cf.signed)return;
-  const c=CC.customers.find(x=>String(x.customer_id)===String(cf.customerId))||{};
-  const calc=calcContract(CC.packages.filter(p=>cf.pkgIds.includes(p.package_id)),cf.sums);
   try{
-    await api.saveContract({
-      customer_id:c.customer_id,customer_name:c.customer_name,insurance_id:cf.insId,
-      guarantor:{...cf.g},package_ids:[...cf.pkgIds],sums:{...cf.sums},
-      premium_per_year:calc.yearly,premium_per_month:calc.monthly,period_years:calc.years,total:calc.total,
-      signature:$("#sig").toDataURL("image/png"),signed_at:new Date().toISOString()
+    const packageIDs=cf.pkgIds.map(Number);
+    const signature={image_data:$("#sig").toDataURL("image/png"),signed_at:new Date().toISOString()};
+    const result=await api.submitSignedContract({
+      ...(cf.insId?{insurance_id:Number(cf.insId)}:{}),
+      customer_id:String(cf.customerId),
+      user_id:Number(currentBrokerUserID()),
+      package_ids:packageIDs,
+      claims:Object.fromEntries(packageIDs.map(packageID=>[String(packageID),Number(cf.claims[packageID])||0])),
+      guarantor_information:{...cf.g},
+      signature
     });
+    const insuranceIDs=result?.data?.insurance_ids||[];
+    const calculated=calcContract(CC.packages.filter(pkg=>packageIDs.includes(Number(pkg.package_id))),cf.claims);
+    for(let index=0;index<insuranceIDs.length;index++){
+      const insuranceID=Number(insuranceIDs[index]);
+      const packageID=packageIDs[index];
+      const item=calculated.items.find(entry=>Number(entry.packageID)===packageID);
+      const pkg=CC.packages.find(entry=>Number(entry.package_id)===packageID);
+      const claim=Number(cf.claims[packageID])||0;
+      await api.saveContract({
+        insurance_id:insuranceID,customer_id:String(cf.customerId),
+        guarantor:{...cf.g},package_ids:[packageID],claims:{[packageID]:claim},
+        package_price:item?.premiumPerMonth||0,payment_period:item?.periodMonths||0,
+        total:item?.totalPayable||0,signature:signature.image_data,signed_at:signature.signed_at,package_name:pkg?.package_name||""
+      });
+    }
     closeModal();
     await render();
   }catch(error){
