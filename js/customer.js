@@ -1,95 +1,139 @@
-let crit={};
-let customerFilters={};
+const customerFilterFields=["Age","Gender","Name","Yearly salary","Sex","Health"];
+const customerGenderOptions=["Agender","Abimegender","Adamas gender","Aerogender","Aesthetigender","Affectugender","Agenderflux","Alexigender","Aliusgender","Amaregender","Ambigender","Ambonec","Amicagender","Androgyne","Anesigender","Angenital","Anogender","Anongender","Antegender","Anxiegender","Apagender","Apconsugender","Astergender","Astral gender","Autigender","Autogender","Axigender","Bigender","Biogender","Blurgender","Boyflux","Burstgender","Caelgender","Cassgender","Cassflux","Cavusgender","Cendgender","Ceterogender","Ceterofluid","Cisgender","Cloudgender","Collgender","Colorgender","Commogender","Condigender","Deliciagender","Demifluid","Demiflux","Demigender","Domgender","Duragender","Egogender","Epicene","Esspigender","Exgender","Existigender","Femfluid","Femgender","Fluidflux","Gemigender","Genderblank","Genderflow","Genderfluid","Genderfuzz","Genderflux","Genderpuck","Genderqueer","Gender witched","Girlflux","Healgender","Mirrorgender","Omnigender","Male","Female"];
+const customerSexOptions=["Male","Female"];
+const customerHealthOptions=["NORMAL","BAD","VERY_BAD","COMA","DYING"];
+let customerFilterRules=[];
+let customerFiltersVisible=false;
+let customerGenderMenu=null;
 let saCustomers=[];
+let bankFilter={q:"",salary_min:"",salary_max:""};
 let bankMatches=[];
-let bankFilterOptions={gender:[],sex:[]};
-const bankSearchFields=[
-  {key:"customer_name",label:"Name",type:"text",defaultOp:"contains"},
-  {key:"customer_gender",label:"Gender",type:"select",optionsKey:"gender"},
-  {key:"customer_sex",label:"Sex",type:"select",optionsKey:"sex"},
-  {key:"age",label:"Age",type:"number",defaultOp:"Any"},
-  {key:"salary",label:"Monthly salary",type:"number",defaultOp:"Any"}
-];
-let bankSearchCriteria=Object.fromEntries(bankSearchFields.map(field=>[field.key,{open:false,op:field.defaultOp||"=",value:""}]));
-const customerFilterFields=[
-  {key:"customer_name",label:"Name",type:"text"},
-  {key:"customer_gender",label:"Gender",type:"select"},
-  {key:"customer_sex",label:"Sex",type:"select"},
-  {key:"customer_age",label:"Age",type:"number"},
-  {key:"salary_per_month",label:"Yearly salary",type:"number",step:"any"}
-];
 
 async function customerPage(){
-  const customers=await api.customerRecords();
-  saCustomers=customers;
-  const matches=customers.filter(customer=>Object.entries(customerFilters).every(([key,filter])=>{
-    const field=customerFilterFields.find(item=>item.key===key);
-    const raw=key==="salary_per_month"&&customer.salary_per_month!=null
-      ? Number(customer.salary_per_month)*12
-      : customer[key];
-    if(!field)return true;
-    if(raw===null||raw===undefined||raw==="")return false;
-    if(field.type==="number"){
-      const actual=Number(raw),expected=Number(filter.value);
-      if(!Number.isFinite(actual)||!Number.isFinite(expected))return false;
-      return filter.op==="<"?actual<expected:filter.op===">"?actual>expected:actual===expected;
-    }
-    if(field.type==="date"){
-      const actual=String(raw).slice(0,10),expected=filter.value;
-      return filter.op==="<"?actual<expected:filter.op===">"?actual>expected:actual===expected;
-    }
-    const actual=String(raw).toLocaleLowerCase(),expected=String(filter.value).toLocaleLowerCase();
-    return filter.op==="="?actual===expected:actual.includes(expected);
-  }));
-  const list=matches.map(customer=>`<div class="card row customer-card ${openId==="c"+customer.customer_id?"open":""}" data-customer-id="${esc(customer.customer_id)}">
+  saCustomers=await api.customerRecords();
+  return `<div class="customer-page-head"><h1>Customer</h1><button class="add" style="width:44px;height:36px" title="Add bank customers" aria-label="Add bank customers" onclick="custForm()">+</button></div>
+    <button class="btn customer-filter-toggle" aria-expanded="${customerFiltersVisible}" onclick="toggleCustomerFilters()">Filter</button>
+    <div class="customer-filter-panel" id="customer-filter-panel" ${customerFiltersVisible?"":"hidden"}></div>
+    <div class="customer-filter-count muted" id="customer-filter-count"></div><div id="customer-list"></div>`;
+}
+
+function customerFilterOperators(field){
+  if(field==="Name")return ["contains","equals","starts with"];
+  if(field==="Gender"||field==="Sex")return ["is","is not"];
+  if(field==="Health")return ["is","is not"];
+  if(field==="Age"||field==="Yearly salary")return ["equals","greater than","less than","at least","at most"];
+  return ["contains","equals","is empty","is not empty"];
+}
+function availableCustomerFilterFields(index=-1){
+  const used=new Set(customerFilterRules.filter((_,ruleIndex)=>ruleIndex!==index).map(rule=>rule.field));
+  return customerFilterFields.filter(field=>!used.has(field));
+}
+function customerGenderDropdown(rule,index,options){
+  const key=`${rule.field}-${index}`,open=customerGenderMenu===key;
+  return `<div class="customer-gender-select"><button type="button" class="customer-gender-toggle" aria-haspopup="listbox" aria-expanded="${open}" onclick="toggleCustomerGenderMenu('${rule.field}',${index})">${esc(rule.value||`Select ${rule.field.toLowerCase()}`)}<span aria-hidden="true">⌄</span></button>
+    ${open?`<div class="customer-gender-menu" role="listbox" aria-label="${rule.field} options">${options.map((value,optionIndex)=>`<button type="button" role="option" aria-selected="${rule.value===value}" onclick="selectCustomerGender(${index},${optionIndex})">${esc(value)}</button>`).join("")}</div>`:""}</div>`;
+}
+function customerFilterValueControl(rule,index){
+  if(rule.field==="Health"&&(rule.operator==="is empty"||rule.operator==="is not empty"))return '<span class="filter-value-empty"></span>';
+  if(rule.field==="Gender")return customerGenderDropdown(rule,index,customerGenderOptions);
+  if(rule.field==="Sex")return customerGenderDropdown(rule,index,customerSexOptions);
+  if(rule.field==="Health")return customerGenderDropdown(rule,index,customerHealthOptions);
+  const numeric=rule.field==="Age"||rule.field==="Yearly salary";
+  return `<input aria-label="Filter value" ${numeric?'type="number" min="0" step="'+(rule.field==="Age"?"1":"any")+'" inputmode="decimal"':'type="text"'} placeholder="${numeric?(rule.field==="Yearly salary"?"Annual amount":"Number"):"Text"}" value="${esc(rule.value)}" oninput="customerFilterRules[${index}].value=this.value;renderCustomerList()">`;
+}
+function drawCustomerFilterPanel(){
+  const panel=document.getElementById("customer-filter-panel");
+  if(!panel)return;
+  panel.hidden=!customerFiltersVisible;
+  if(!customerFiltersVisible)return;
+  const rules=customerFilterRules.map((rule,index)=>{
+    const operators=customerFilterOperators(rule.field);
+    const fields=availableCustomerFilterFields(index);
+    return `<div class="customer-filter-rule">
+      <select aria-label="Filter field" onchange="setCustomerFilterField(${index},this.value)">${fields.map(field=>`<option value="${field}" ${rule.field===field?"selected":""}>${field}</option>`).join("")}</select>
+      <select aria-label="Filter operator" onchange="customerFilterRules[${index}].operator=this.value;customerFilterRules[${index}].value='';drawCustomerFilterPanel();renderCustomerList()">${operators.map(operator=>`<option value="${operator}" ${rule.operator===operator?"selected":""}>${operator}</option>`).join("")}</select>
+      ${customerFilterValueControl(rule,index)}
+      <button class="btn customer-filter-remove" aria-label="Remove filter" title="Remove filter" onclick="removeCustomerFilter(${index})">×</button>
+    </div>`;
+  }).join("");
+  const canAdd=availableCustomerFilterFields().length>0;
+  panel.innerHTML=`<div class="customer-filter-rules">${rules||'<p class="muted">No filters added.</p>'}</div>
+    <div class="customer-filter-actions">${canAdd?'<button class="btn" onclick="addCustomerFilter()">+ Add filter</button>':""}<button class="btn" onclick="clearCustomerFilters()">Clear</button></div>`;
+}
+function toggleCustomerFilters(){
+  customerFiltersVisible=!customerFiltersVisible;
+  if(customerFiltersVisible&&!customerFilterRules.length)customerFilterRules.push({field:customerFilterFields[0],operator:customerFilterOperators(customerFilterFields[0])[0],value:""});
+  const button=document.querySelector(".customer-filter-toggle");if(button)button.setAttribute("aria-expanded",String(customerFiltersVisible));
+  drawCustomerFilterPanel();
+}
+function setCustomerFilterField(index,field){
+  if(!availableCustomerFilterFields(index).includes(field))return;
+  customerFilterRules[index]={field,operator:customerFilterOperators(field)[0],value:""};
+  drawCustomerFilterPanel();renderCustomerList();
+}
+function addCustomerFilter(){
+  const field=availableCustomerFilterFields()[0];
+  if(!field)return;
+  customerFilterRules.push({field,operator:customerFilterOperators(field)[0],value:""});
+  drawCustomerFilterPanel();
+}
+function toggleCustomerGenderMenu(field,index){
+  const key=`${field}-${index}`;customerGenderMenu=customerGenderMenu===key?null:key;drawCustomerFilterPanel();
+}
+function selectCustomerGender(index,optionIndex){
+  const rule=customerFilterRules[index],options=rule.field==="Sex"?customerSexOptions:rule.field==="Health"?customerHealthOptions:customerGenderOptions;
+  rule.value=options[optionIndex]||"";customerGenderMenu=null;drawCustomerFilterPanel();renderCustomerList();
+}
+function removeCustomerFilter(index){customerFilterRules.splice(index,1);drawCustomerFilterPanel();renderCustomerList()}
+function clearCustomerFilters(){customerFilterRules=[];drawCustomerFilterPanel();renderCustomerList()}
+function customerMatchesFilter(customer,rule){
+  const value=String(rule.value??"");
+  if(rule.field==="Health"){
+    const health=String(customer.health_info||"").trim().toLocaleLowerCase();
+    if(rule.operator==="is empty")return !health;
+    if(rule.operator==="is not empty")return Boolean(health);
+    if(!value.trim())return true;
+    const selected=value.trim().toLocaleLowerCase();
+    return rule.operator==="is not"?health!==selected:health===selected;
+  }
+  if(!value.trim())return true;
+  if(rule.field==="Name"){
+    const name=String(customer.customer_name||"").toLocaleLowerCase(),query=value.trim().toLocaleLowerCase();
+    return rule.operator==="equals"?name===query:rule.operator==="starts with"?name.startsWith(query):name.includes(query);
+  }
+  if(rule.field==="Gender"||rule.field==="Sex"){
+    const gender=String(rule.field==="Gender"?customer.customer_gender:customer.customer_sex||"").toLocaleLowerCase(),selected=value.toLocaleLowerCase();
+    return rule.operator==="is not"?gender!==selected:gender===selected;
+  }
+  const actual=Number(rule.field==="Age"?customer.customer_age:Number(customer.salary_per_month)*12),expected=Number(value);
+  if(!Number.isFinite(actual)||actual<=0||!Number.isFinite(expected))return false;
+  return rule.operator==="greater than"?actual>expected:rule.operator==="less than"?actual<expected:rule.operator==="at least"?actual>=expected:rule.operator==="at most"?actual<=expected:actual===expected;
+}
+function renderCustomerList(){
+  const activeRules=customerFilterRules.filter(rule=>rule.value!==""||rule.operator==="is empty"||rule.operator==="is not empty");
+  const matches=saCustomers.filter(customer=>activeRules.every(rule=>customerMatchesFilter(customer,rule)));
+  openId=null;
+  const list=matches.map(customer=>`<div class="card row customer-card" data-customer-id="${esc(customer.customer_id)}">
     <div class="row-head" style="grid-template-columns:1.5fr 1fr 1fr" onclick="toggleCustomer('${esc(customer.customer_id)}')">
-      <div><b>${esc(customer.customer_name)}</b></div>
-      <div class="muted">Age ${customer.customer_age??"—"}</div>
-      <div class="muted">#${customer.customer_id}</div>
-    </div>
-    <div class="detail">
-      <div><b>Customer ID</b>${customer.customer_id}</div>
-      <div><b>Telephone number</b>${esc(customer.telephone_number||"-")}</div>
-      <div><b>Yearly salary</b>${customer.salary_per_month==null?"—":(Number(customer.salary_per_month)*12).toLocaleString("en")}</div>
-      <div><b>Email</b>${esc(customer.customer_email||"—")}</div>
-      <div><b>Address</b>${esc(customer.customer_address||"—")}</div>
-      <div><b>Nationality</b>${esc(customer.customer_nationality||"—")}</div>
-      <div><b>Gender</b>${esc(customer.customer_gender||"—")}</div>
-      <div><b>Sex</b>${esc(customer.customer_sex||"—")}</div>
-      <div><b>Date of birth</b>${customer.customer_dob?fmt(customer.customer_dob):"—"}</div>
-      <div><b>Customer since</b>${customer.create_timestamp?fmt(customer.create_timestamp):"—"}</div>
-      <div style="grid-column:1/-1"><b>Health condition</b>${esc(customer.health_info||"—")}</div>
-      <div style="grid-column:1/-1"><b>Health detail</b>${esc(customer.health_detail||"—")}</div>
-    </div>
-    <div class="detail" id="customer-detail-${esc(customer.customer_id)}"></div>
-  </div>`).join("");
-  const filterCount=Object.keys(customerFilters).length;
-  const filterLabel=filterCount?`${filterCount} filter${filterCount===1?"":"s"}`:"All customers";
-  return `<div class="calhead"><h1>Customer</h1><span class="muted">${esc(filterLabel)} · ${matches.length} of ${customers.length} in sa</span><span style="flex:1"></span>${filterCount?'<button class="btn" onclick="clearCustomerFilter()">Clear filter</button> ':""}<button class="btn" onclick="customerFilterForm()">Filter</button><button class="add" style="width:44px;height:36px" title="Add bank customers" aria-label="Add bank customers" onclick="custForm()">+</button></div>${list||'<div class="card pad">No customer records found.</div>'}`;
+      <div><b>${esc(customer.customer_name)}</b></div><div class="muted">Age ${customer.customer_age??"—"}</div><div class="muted">#${customer.customer_id}</div>
+    </div><div class="detail" id="customer-detail-${esc(customer.customer_id)}"></div></div>`).join("");
+  const count=document.getElementById("customer-filter-count");if(count)count.textContent=`${matches.length} of ${saCustomers.length} customers`;
+  const container=document.getElementById("customer-list");if(container)container.innerHTML=list||'<div class="card pad">No customers match these filters.</div>';
 }
-
-function customerFilterForm(){
-  crit=Object.fromEntries(customerFilterFields.map(field=>{
-    const active=customerFilters[field.key];
-    return [field.key,{open:Boolean(active),op:active?.op||defaultFilterOperator(field),value:active?.value??""}];
-  }));
-  drawCust();
-  $("#overlay").classList.add("show");
-}
-
 const customerDetailsCache=new Map();
 function customerDetailHTML(customer){
   return `<div><b>Customer ID</b>${esc(customer.customer_id)}</div>
     <div><b>Telephone number</b>${esc(customer.telephone_number||"-")}</div>
-    <div><b>Email</b>${esc(customer.customer_email||"—")}</div>
-    <div><b>Address</b>${esc(customer.customer_address||"—")}</div>
-    <div><b>Nationality</b>${esc(customer.customer_nationality||"—")}</div>
-    <div><b>Gender</b>${esc(customer.customer_gender||"—")}</div>
-    <div><b>Sex</b>${esc(customer.customer_sex||"—")}</div>
-    <div><b>Date of birth</b>${customer.customer_dob?fmt(customer.customer_dob):"—"}</div>
-    <div><b>Customer since</b>${customer.create_timestamp?fmt(customer.create_timestamp):"—"}</div>
-    <div style="grid-column:1/-1"><b>Health condition</b>${esc(customer.health_info||"—")}</div>
-    <div style="grid-column:1/-1"><b>Health detail</b>${esc(customer.health_detail||"—")}</div>`;
+    <div><b>Email</b>${esc(customer.customer_email||"-")}</div>
+    <div><b>Address</b>${esc(customer.customer_address||"-")}</div>
+    <div><b>Nationality</b>${esc(customer.customer_nationality||"-")}</div>
+    <div><b>Gender</b>${esc(customer.customer_gender||"-")}</div>
+    <div><b>Sex</b>${esc(customer.customer_sex||"-")}</div>
+    <div><b>Date of birth</b>${customer.customer_dob?fmt(customer.customer_dob):"-"}</div>
+    <div><b>Customer since</b>${customer.create_timestamp?fmt(customer.create_timestamp):"-"}</div>
+    <div><b>Yearly salary</b>${customer.salary_per_month==null?"-":(Number(customer.salary_per_month)*12).toLocaleString("en")}</div>
+    <div style="grid-column:1/-1"><b>Health condition</b>${esc(customer.health_info||"-")}</div>
+    <div style="grid-column:1/-1"><b>Health detail</b>${esc(customer.health_detail||"-")}</div>`;
 }
 async function toggleCustomer(id){
   const key="c"+id;
@@ -106,74 +150,15 @@ async function toggleCustomer(id){
   }catch(error){if(openId===key)detail.innerHTML=`<span class="s-bad">${esc(error.message||"Unable to load customer details")}</span>`}
 }
 
-const queryStr=()=>crit.age?.open&&crit.age.val!==""?`age${crit.age.op}${crit.age.val}`:"";
-
-function ageForm(){
-  crit={age:{open:Boolean(ageFilter),op:ageFilter?.op||">",val:ageFilter?String(ageFilter.value):""}};
-  drawCust();
-  $("#overlay").classList.add("show");
-}
-
-function defaultFilterOperator(field){return field.type==="number"?"Any":field.type==="text"?"contains":"="}
-
-function drawCust(){
-  const fields=customerFilterFields.map(field=>{
-    const criterion=crit[field.key];
-    if(!criterion.open)return `<div class="crit"><b>${esc(field.label)}:</b><button class="btn" onclick="crit['${field.key}'].open=true;drawCust()">Any</button></div>`;
-    if(field.type==="select"){
-      const values=[...new Set(saCustomers.map(customer=>customer[field.key]).filter(Boolean))].sort((a,b)=>String(a).localeCompare(String(b)));
-      return `<div class="crit"><b>${esc(field.label)}:</b><select aria-label="${esc(field.label)}" onchange="crit['${field.key}'].value=this.value"><option value="">Any</option>${values.map(value=>`<option value="${esc(value)}" ${String(value)===String(criterion.value)?"selected":""}>${esc(value)}</option>`).join("")}</select></div>`;
-    }
-    const operators=field.type==="text"?["contains","="]:field.type==="number"?["Any","<","=",">"]:["<","=",">"];
-    const inputType=field.type==="date"?"date":field.type==="number"?"number":"text";
-    return `<div class="crit"><b>${esc(field.label)}:</b><select style="width:${field.type==="text"?"110":"70"}px" onchange="crit['${field.key}'].op=this.value;if(this.value==='Any')crit['${field.key}'].value='';drawCust()">${operators.map(op=>`<option value="${op}" ${op===criterion.op?"selected":""}>${op}</option>`).join("")}</select>${field.type==="number"&&criterion.op==="Any"?"":`<input type="${inputType}" ${field.type==="number"?`min="0" step="${field.step||1}"`:""} placeholder="${field.type==="text"||field.key==="salary"?"Any":""}" aria-label="${esc(field.label)} value" value="${esc(criterion.value)}" oninput="crit['${field.key}'].value=this.value">`}</div>`;
-  }).join("");
+function custForm(){
   $("#modal").className="card modal";
-  $("#modal").innerHTML=`<h1>Filter customers</h1><div class="customer-filter-list">${fields}</div><div class="actions"><button class="btn" onclick="closeModal()">Cancel</button><button class="btn ok" onclick="applyCustomerFilters()">Apply</button></div>`;
-}
-
-function applyCustomerFilters(){
-  customerFilters=Object.fromEntries(customerFilterFields.flatMap(field=>{
-    const criterion=crit[field.key];
-    const value=String(criterion.value??"").trim();
-    if(!criterion.open||value===""||(field.type==="number"&&criterion.op==="Any"))return [];
-    return [[field.key,{op:criterion.op,value:field.type==="number"?Number(value):value}]];
-  }));
-  closeModal();
-  render();
-}
-
-function clearCustomerFilter(){customerFilters={};render()}
-
-async function custForm(){
-  $("#overlay").classList.add("show");
-  $("#modal").className="card modal";
-  $("#modal").innerHTML="<h1>Loading bank filters...</h1>";
-  try{
-    bankFilterOptions=await api.bankCustomerFilterOptions();
-    drawBankSearchForm();
-  }catch(error){
-    $("#modal").innerHTML=`<h1>Bank search unavailable</h1><p class="error">${esc(error.message||"Unable to load bank filter options")}</p><div class="actions"><button class="btn" onclick="closeModal()">Close</button></div>`;
-  }
-}
-
-function openBankFilter(key){bankSearchCriteria[key].open=true;drawBankSearchForm()}
-
-function drawBankSearchForm(){
-  const fields=bankSearchFields.map(field=>{
-    const criterion=bankSearchCriteria[field.key];
-    if(!criterion.open)return `<div class="crit"><b>${esc(field.label)}:</b><button class="btn" onclick="openBankFilter('${field.key}')">Any</button></div>`;
-    if(field.type==="select"){
-      const options=bankFilterOptions[field.optionsKey]||[];
-      return `<div class="crit"><b>${esc(field.label)}:</b><select aria-label="${esc(field.label)}" onchange="bankSearchCriteria['${field.key}'].value=this.value"><option value="">Any</option>${options.map(value=>`<option value="${esc(value)}" ${String(value)===String(criterion.value)?"selected":""}>${esc(value)}</option>`).join("")}</select></div>`;
-    }
-    const operators=field.type==="text"?["contains","="]:field.type==="number"?["Any","<","=",">"]:["<","=",">"];
-    return `<div class="crit"><b>${esc(field.label)}:</b><select style="width:${field.type==="text"?"110":"70"}px" aria-label="${esc(field.label)} operator" onchange="bankSearchCriteria['${field.key}'].op=this.value;if(this.value==='Any')bankSearchCriteria['${field.key}'].value='';drawBankSearchForm()">${operators.map(op=>`<option value="${op}" ${op===criterion.op?"selected":""}>${op}</option>`).join("")}</select>${field.type==="number"&&criterion.op==="Any"?"":`<input type="${field.type==="number"?"number":"text"}" ${field.type==="number"?'min="0" step="1"':""} placeholder="${field.type==="text"||field.key==="salary"?"Any":"Value"}" aria-label="${esc(field.label)} value" value="${esc(criterion.value)}" oninput="bankSearchCriteria['${field.key}'].value=this.value">`}</div>`;
-  }).join("");
-  $("#modal").className="card modal";
-  $("#modal").innerHTML=`<h1>Search bank customers</h1><div class="customer-filter-list">${fields}</div>
-    <p class="muted">Choose one or more customer properties to search in the bank database.</p>
+  $("#modal").innerHTML=`<h1>Search bank customers</h1>
+    <label for="customer-q">Name, email, telephone, or address</label><input id="customer-q" maxlength="200" value="${esc(bankFilter.q)}" placeholder="Search text">
+    <label for="salary-min">Minimum salary</label><input id="salary-min" inputmode="numeric" value="${esc(bankFilter.salary_min)}" placeholder="Any">
+    <label for="salary-max">Maximum salary</label><input id="salary-max" inputmode="numeric" value="${esc(bankFilter.salary_max)}" placeholder="Any">
+    <p class="muted">Enter a search term or salary filter. Salary uses the units stored in the bank database.</p>
     <div class="actions"><button class="btn" onclick="closeModal()">Cancel</button><button class="btn ok" onclick="sendQuery()">Search</button></div>`;
+  $("#overlay").classList.add("show");
 }
 
 function invalidSearch(message){
@@ -181,37 +166,18 @@ function invalidSearch(message){
 }
 
 async function sendQuery(){
-  const filters={};
-  for(const field of bankSearchFields){
-    const criterion=bankSearchCriteria[field.key];
-    const value=String(criterion.value||"").trim();
-    if(field.type==="number"&&criterion.op==="Any")continue;
-    if(!criterion.open||!value)continue;
-    if(field.type==="number"&&!/^\d+$/.test(value)){invalidSearch(`${field.label} must be a non-negative whole number.`);return}
-    if(field.type==="text"){
-      filters.customer_name=value;
-      if(criterion.op==="=")filters.customer_name_exact="true";
-    }else if(field.type==="select"){
-      filters[field.key]=value;
-    }else if(field.key==="age"){
-      filters.age=value;filters.age_op=criterion.op;
-    }else{
-      const filterName=criterion.op==="="?"salary":criterion.op==="<"?"salary_lt":"salary_gt";
-      filters[filterName]=value;
-    }
-  }
-  if(!Object.keys(filters).length){invalidSearch("Choose at least one customer property to search.");return}
+  const q=$("#customer-q").value.trim();
+  const salary_min=$("#salary-min").value.trim();
+  const salary_max=$("#salary-max").value.trim();
+  if(!q&&!salary_min&&!salary_max){invalidSearch("Enter a search term or salary filter.");return}
+  if((salary_min&&!/^\d+$/.test(salary_min))||(salary_max&&!/^\d+$/.test(salary_max))){invalidSearch("Salary filters must be non-negative whole numbers.");return}
+  if(salary_min&&salary_max&&Number(salary_min)>Number(salary_max)){invalidSearch("Minimum salary must not exceed maximum salary.");return}
+  bankFilter={q,salary_min,salary_max};
   $("#modal").innerHTML='<h1>Searching bank customers...</h1>';
   try{
-    const results=await api.searchBankCustomers(filters);
-    const existingIDs=new Set(saCustomers.map(customer=>Number(customer.customer_id)));
-    const existingEmails=new Set(saCustomers.map(customer=>String(customer.customer_email||"").trim().toLocaleLowerCase()).filter(Boolean));
-    const existingPhones=new Set(saCustomers.map(customer=>String(customer.telephone_number||"").replace(/\D/g,"")).filter(Boolean));
-    bankMatches=results.filter(customer=>{
-      const email=String(customer.customer_email||"").trim().toLocaleLowerCase();
-      const phone=String(customer.telephone_number||"").replace(/\D/g,"");
-      return !existingIDs.has(Number(customer.customer_id))&&(!email||!existingEmails.has(email))&&(!phone||!existingPhones.has(phone));
-    });
+    const results=await api.searchBankCustomers(bankFilter);
+    const existing=new Set(saCustomers.map(customer=>Number(customer.customer_id)));
+    bankMatches=results.filter(customer=>!existing.has(Number(customer.customer_id)));
     drawBankMatches(results.length-bankMatches.length);
   }catch(error){
     $("#modal").innerHTML=`<h1>Bank search failed</h1><p class="error">${esc(error.message||"Unable to search bank customers")}</p><div class="actions"><button class="btn" onclick="custForm()">Back</button><button class="btn" onclick="closeModal()">Cancel</button></div>`;
@@ -245,6 +211,8 @@ async function render(){
   $("#main").innerHTML='<h1>Customer</h1><div class="card pad">Loading customers from sa...</div>';
   try{
     $("#main").innerHTML=await customerPage();
+    drawCustomerFilterPanel();
+    renderCustomerList();
   }catch(error){
     $("#main").innerHTML=`<h1>Customer</h1><div class="card pad">${esc(error.message||"Unable to load customers from sa")}</div>`;
   }
@@ -252,3 +220,10 @@ async function render(){
 
 mountNav("customer");
 render();
+
+
+
+
+
+
+
