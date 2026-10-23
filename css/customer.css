@@ -1,2 +1,2 @@
-.crit{display:flex;gap:8px;align-items:center;margin-bottom:10px}.crit b{min-width:70px}.crit input.mod{background:color-mix(in srgb,var(--ok) 28%,transparent)}
+.crit{display:flex;gap:8px;align-items:center;margin-bottom:10px}.crit b{min-width:70px}.crit select{width:auto;flex:none}.crit input{flex:1;min-width:0}.crit input.mod{background:color-mix(in srgb,var(--ok) 28%,transparent)}
 .bank-candidate{display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--line)}.bank-candidate input[type=checkbox]{width:auto;flex:none}.modal:has(.bank-candidate){max-height:90vh;overflow:auto}

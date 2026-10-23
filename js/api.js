@@ -122,6 +122,10 @@ const api={
     const result=await requestBank(`/bank/customers?${params.toString()}`);
     return result.data||[];
   },
+  async bankCustomerFilterOptions(){
+    const result=await requestBank("/bank/customer-filter-options");
+    return result.data||{gender:[],sex:[]};
+  },
   async addCustomers(customers){
     return requestBackend("/customer/customer-info/add",{method:"POST",body:JSON.stringify({data:customers})});
   },

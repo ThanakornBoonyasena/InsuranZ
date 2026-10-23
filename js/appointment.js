@@ -1,6 +1,7 @@
 // ---- Appointment ----
 const now=new Date();let calY=now.getFullYear(),calM=now.getMonth(),ap=null,apSaved="",appointments=[],customers=[],packageNames=[],sellingCases=[];
 const iso=(y,m,d)=>`${y}-${String(m+1).padStart(2,"0")}-${String(d).padStart(2,"0")}`;
+const todayKey=()=>{const today=new Date();return iso(today.getFullYear(),today.getMonth(),today.getDate())};
 const jc=o=>JSON.parse(JSON.stringify(o));
 function localDateTime(value){const date=new Date(value);return `${iso(date.getFullYear(),date.getMonth(),date.getDate())}T${String(date.getHours()).padStart(2,"0")}:${String(date.getMinutes()).padStart(2,"0")}`}
 function localDateKey(value){const date=new Date(value);return iso(date.getFullYear(),date.getMonth(),date.getDate())}
@@ -12,24 +13,35 @@ async function appointmentPage(){
   customers=data.customers;
   packageNames=data.packages;
   sellingCases=data.sellingCases||[];
+  const appointmentsByDate=new Map();
+  for(const appointment of appointments){
+    const key=localDateKey(appointment.appointment_date);
+    if(!appointmentsByDate.has(key))appointmentsByDate.set(key,[]);
+    appointmentsByDate.get(key).push(appointment);
+  }
+  const today=todayKey();
   const first=new Date(calY,calM,1),days=new Date(calY,calM+1,0).getDate();let cells="".padEnd(0);
   for(let k=0;k<first.getDay();k++)cells+="<div></div>";
   for(let d=1;d<=days;d++){const key=iso(calY,calM,d);
-    cells+=`<div class="day ${key===iso(now.getFullYear(),now.getMonth(),now.getDate())?"today":""}" onclick="apptForm(null,'${key}')"><div class="n"><span>${d}</span><button class="day-plus" title="Add appointment" aria-label="Add appointment on ${key}" onclick="event.stopPropagation();apptForm(null,'${key}')">+</button></div>${appointments.filter(a=>localDateKey(a.appointment_date)===key).map(a=>`<div class="appt" onclick="event.stopPropagation();apptForm(${a.id})"><b>${esc(a.customer_name)}</b><br>${localTime(a.appointment_date)} · ${esc(a.location)}</div>`).join("")}</div>`}
+    const past=key<today;
+    cells+=`<div class="day ${key===today?"today":""} ${past?"past":""}" ${past?'aria-disabled="true"':`onclick="apptForm(null,'${key}')"`}><div class="n"><span>${d}</span>${past?"":`<button class="day-plus" title="Add appointment" aria-label="Add appointment on ${key}" onclick="event.stopPropagation();apptForm(null,'${key}')">+</button>`}</div>${(appointmentsByDate.get(key)||[]).map(a=>`<div class="appt" onclick="event.stopPropagation();apptForm(${a.id})"><b>${esc(a.customer_name)}</b><br>${localTime(a.appointment_date)} · ${esc(a.location)}</div>`).join("")}</div>`}
   return `<div class="calhead"><button class="btn" onclick="calMove(-1)">‹</button><h1>${first.toLocaleString("en-GB",{month:"long",year:"numeric"})}</h1><button class="btn" onclick="calMove(1)">›</button></div><div class="cal">${["Sun","Mon","Tue","Wed","Thu","Fri","Sat"].map(d=>`<div class="dow">${d}</div>`).join("")}${cells}</div>`;
 }
 function apptForm(id,day){
+  if(!id&&day&&day<todayKey()){showToast("Appointments cannot be created on past dates.");return}
   const a=id?appointments.find(x=>x.id===id):null;
   ap=a?jc(a):{id:null,customer_id:customers[0]?.customer_id||"",customer_name:customers[0]?.customer_name||"",sell_case_id:null,user_id:Number(store.get("user_id")),appointment_date:day+"T09:00",location:"",packages:[],reports:[]};
   apSaved=JSON.stringify(ap);drawAppt();$("#overlay").classList.add("show");
 }
 function drawAppt(){
   $("#modal").className="card modal wide";
+  const currentDay=localDateKey(ap.appointment_date);
+  const minimumDay=ap.id===null||currentDay>=todayKey()?todayKey():currentDay;
   $("#modal").innerHTML=`<h1>${ap.id===null?"New appointment":"Appointment"}</h1><div class="cols"><div>
   <label>Customer</label><select value="${esc(ap.customer_id)}" onchange="ap.customer_id=this.value;ap.customer_name=customers.find(c=>c.customer_id===this.value)?.customer_name||'';drawActs()">${customers.map(c=>`<option value="${esc(c.customer_id)}" ${String(c.customer_id)===String(ap.customer_id)?"selected":""}>${esc(c.customer_name)}</option>`).join("")}</select>
   <label>Selling case</label><select onchange="ap.sell_case_id=this.value?Number(this.value):null;drawActs()"><option value="">Not assigned</option>${sellingCases.map(item=>`<option value="${item.sell_case_id}" ${Number(item.sell_case_id)===Number(ap.sell_case_id)?"selected":""}>Case #${item.sell_case_id} · ${esc(item.case_status)}</option>`).join("")}</select>
   <label>Assigned user ID</label><input value="${esc(ap.user_id??store.get("user_id")??"")}" readonly>
-  <label>Date and time</label><input type="datetime-local" value="${localDateTime(ap.appointment_date)}" oninput="ap.appointment_date=this.value;drawActs()" onchange="ap.appointment_date=this.value;drawActs()">
+  <label>Date and time</label><input type="datetime-local" min="${minimumDay}T00:00" value="${localDateTime(ap.appointment_date)}" oninput="ap.appointment_date=this.value;drawActs()" onchange="ap.appointment_date=this.value;drawActs()">
   <label>Packages to discuss</label><div class="muted" style="font-size:12px;margin-bottom:6px">Choose one or more packages from the list.</div><div class="package-picker"><div class="tagbox" id="tagbox" onclick="$('#tagin').focus()">${tagsInner()}</div><div class="package-options" id="package-options" role="listbox" hidden></div></div><div class="tagfoot"><span class="muted" id="tagcount">${tagCount()}</span><button class="btn bad" onclick="clearTags()">Remove All</button></div>
   <label>Location</label><input value="${esc(ap.location)}" oninput="ap.location=this.value;drawActs()">
   </div><div>${ap.id===null?"":repsHTML()}</div></div><div class="actions" id="apacts"></div>`;
@@ -83,7 +95,14 @@ async function saveRep(){
   try{
     const result=await api.saveReport(report);
     const saved=result.data;
-    ap.reports.push({report_id:saved.report_id,date:saved.create_timestamp,report_note:saved.content});
+    let appointmentReports=[];
+    try{
+      const reports=await api.reports();
+      appointmentReports=reports.find(item=>Number(item.appointment_id)===Number(ap.id))?.reports||[];
+    }catch{}
+    ap.reports=appointmentReports.length?appointmentReports.map(report=>({
+      ...report,date:report.create_timestamp,report_note:report.content
+    })):[...ap.reports,{report_id:saved.report_id,date:saved.create_timestamp,report_note:saved.content}];
     const savedAppointment=JSON.parse(apSaved);
     savedAppointment.reports=ap.reports;
     apSaved=JSON.stringify(savedAppointment);drawAppt();
@@ -95,6 +114,14 @@ async function saveRep(){
 }
 async function saveAppt(){
   if(!ap.customer_id||!ap.appointment_date||!ap.location.trim())return;
+  const selectedDay=localDateKey(ap.appointment_date);
+  if(selectedDay<todayKey()){
+    const original=ap.id===null?null:appointments.find(appointment=>appointment.id===ap.id);
+    if(!original||localDateKey(original.appointment_date)!==selectedDay){
+      showToast("Appointments cannot be moved to a past date.");
+      return;
+    }
+  }
   try{
     const result=await api.saveAppointment(ap);
     if(ap.id===null)ap.id=result.appointment_id;
@@ -105,7 +132,7 @@ async function saveAppt(){
 async function abortAppt(){
   if(ap.id===null){closeModal();return}
   try{await api.deleteAppointment(ap.id);closeModal();await render()}
-  catch(error){alert(error.message||"Unable to abort appointment")}
+  catch(error){showToast(error.message||"Unable to abort appointment")}
 }
 async function render(){
   $("#main").innerHTML='<div class="card pad">Loading appointments...</div>';
