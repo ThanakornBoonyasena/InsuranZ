@@ -30,10 +30,16 @@ async function appointmentPage(){
     cells+=`<div class="day ${key===today?"today":""} ${past?"past":""}" ${past?'aria-disabled="true"':`onclick="apptForm(null,'${key}')"`}><div class="n"><span>${d}</span>${past?"":`<button class="day-plus" title="Add appointment" aria-label="Add appointment on ${key}" onclick="event.stopPropagation();apptForm(null,'${key}')">+</button>`}</div>${(appointmentsByDate.get(key)||[]).map(a=>`<div class="appt" onclick="event.stopPropagation();apptForm(${a.id})"><b>${esc(a.customer_name)}</b><br>${localTime(a.appointment_date)} · ${esc(a.location)}</div>`).join("")}</div>`}
   return `<div class="calhead"><button class="btn" onclick="calMove(-1)">‹</button><h1>${first.toLocaleString("en-GB",{month:"long",year:"numeric"})}</h1><button class="btn" onclick="calMove(1)">›</button></div><div class="cal">${["Sun","Mon","Tue","Wed","Thu","Fri","Sat"].map(d=>`<div class="dow">${d}</div>`).join("")}${cells}</div>`;
 }
-function apptForm(id,day){
+async function apptForm(id,day){
   if(!id&&day&&day<todayKey()){showToast("Appointments cannot be created on past dates.");return}
   const a=id?appointments.find(x=>x.id===id):null;
   ap=a?jc(a):{id:null,customer_id:customers[0]?.customer_id||"",customer_name:customers[0]?.customer_name||"",sell_case_id:null,user_id:Number(store.get("user_id")),appointment_date:day+"T09:00",location:"",packages:[],reports:[]};
+  if(a){
+    try{
+      const related=(await api.reports(false,a.id,store.get("user_id"))).find(item=>Number(item.appointment_id)===Number(a.id));
+      ap.reports=(related?.reports||[]).map(report=>({...report,date:report.create_timestamp,report_note:report.content}));
+    }catch(error){showToast(error.message||"Unable to load appointment reports");return}
+  }
   apSaved=JSON.stringify(ap);drawAppt();$("#overlay").classList.add("show");
 }
 function drawAppt(){
@@ -92,6 +98,7 @@ function repsHTML(){return `<label>Reports</label>${ap.reports.map(r=>`<div clas
 function newRep(){$("#repnew").innerHTML=`<textarea id="rnote" rows="3" placeholder="Write the report..."></textarea><div class="actions"><button class="btn ok" id="saverep" onclick="saveRep()">Save report</button></div>`}
 async function saveRep(){
   const note=$("#rnote").value.trim();if(!note)return;
+  if(!await confirmDialog("Save this report?",{title:"Save report",confirmText:"Save"}))return;
   const button=$("#saverep");if(button.disabled)return;
   button.disabled=true;button.textContent="Saving…";
   const report={appointment_id:Number(ap.id),report_note:note};
@@ -100,7 +107,7 @@ async function saveRep(){
     const saved=result.data;
     let appointmentReports=[];
     try{
-      const reports=await api.reports();
+      const reports=await api.reports(false,ap.id,store.get("user_id"));
       appointmentReports=reports.find(item=>Number(item.appointment_id)===Number(ap.id))?.reports||[];
     }catch{}
     ap.reports=appointmentReports.length?appointmentReports.map(report=>({
@@ -109,7 +116,6 @@ async function saveRep(){
     const savedAppointment=JSON.parse(apSaved);
     savedAppointment.reports=ap.reports;
     apSaved=JSON.stringify(savedAppointment);drawAppt();
-    alert("Report saved. The backend also created the broker notification.");
   }catch(error){
     button.disabled=false;button.textContent="Save report";
     alert(error.message||"Unable to save report");
@@ -129,6 +135,7 @@ async function saveAppt(){
     alert("Appointments cannot be scheduled before today's date.");
     return;
   }
+  if(!await confirmDialog(ap.id===null?"Create this appointment?":"Save appointment changes?",{title:ap.id===null?"Create appointment":"Save appointment",confirmText:ap.id===null?"Create":"Save"}))return;
   try{
     const result=await api.saveAppointment(ap);
     if(ap.id===null)ap.id=result.appointment_id;
@@ -138,6 +145,7 @@ async function saveAppt(){
 }
 async function abortAppt(){
   if(ap.id===null){closeModal();return}
+  if(!await confirmDialog("Abort this appointment? Its reports and discussed packages will also be removed.",{title:"Abort appointment",confirmText:"Abort",danger:true}))return;
   try{await api.deleteAppointment(ap.id);closeModal();await render()}
   catch(error){showToast(error.message||"Unable to abort appointment")}
 }

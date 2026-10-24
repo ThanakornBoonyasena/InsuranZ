@@ -33,6 +33,7 @@ async function toggleInsurance(id){
 }
 
 async function setStatus(id,approved){
+  if(!await confirmDialog(`${approved?"Approve":"Deny"} insurance #${id}?`,{title:`${approved?"Approve":"Deny"} insurance`,confirmText:approved?"Approve":"Deny",danger:!approved}))return;
   try{
     if(approved)await api.approveInsurance(id);
     else await api.denyInsurance(id);
@@ -58,6 +59,7 @@ async function editForm(id){
 }
 
 async function saveEdit(id){
+  if(!await confirmDialog(`Save changes to insurance #${id}?`,{title:"Save insurance changes",confirmText:"Save"}))return;
   try{
     await api.editInsurance(id,$("#f-det").value);
     insuranceDetailsCache.delete(`all:${id}`);

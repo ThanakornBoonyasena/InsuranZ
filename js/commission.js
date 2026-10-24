@@ -15,7 +15,7 @@ function tableHTML(){
 const hasValues=()=>cur.cols.some(v=>v!=="")||cur.rows.some(v=>v!=="")||cur.cells.some(r=>r.some(v=>v!==""));
 const shapeChanged=()=>cur.rows.length!==saved.rows.length||cur.cols.length!==saved.cols.length;
 const actionsHTML=()=>`${dirty()?'<button class="btn ok" onclick="saveComm()">Save</button>':""}${dirty()||shapeChanged()?'<button class="btn bad" onclick="cancelComm()">Cancel change</button>':hasValues()?'<button class="btn bad" onclick="clearComm()">Clear</button>':""}<button class="btn bad" onclick="resetComm()">Reset to 2 × 2</button>`;
-function cancelComm(){cur=clone(saved);drawComm()}
+async function cancelComm(){if(!await confirmDialog("Discard unsaved commission table changes?",{title:"Discard changes",confirmText:"Discard",danger:true}))return;cur=clone(saved);drawComm()}
 const drawComm=()=>{$("#ctable").innerHTML=tableHTML();$("#cactions").innerHTML=actionsHTML()};
 function cellInput(el){
   const {k,i,j}=el.dataset;
@@ -34,6 +34,7 @@ function setInput(el){
   $("#sactions").innerHTML=setDirty()?'<button class="btn ok" onclick="saveSettings()">Save</button>':"";
 }
 async function saveSettings(){
+  if(!await confirmDialog("Save commission settings?",{title:"Save settings",confirmText:"Save"}))return;
   try{
     await api.saveSettings(setCur);setSaved=clone(setCur);
     document.querySelectorAll("#spanel input,#spanel select").forEach(e=>e.classList.remove("mod"));
@@ -46,7 +47,7 @@ function addCol(){cur.cols.push("");cur.cells.forEach(r=>r.push(""));drawComm()}
 function addRow(){cur.rows.push("");cur.cells.push(cur.cols.map(()=>""));drawComm()}
 function removeCol(index){cur.cols.splice(index,1);cur.cells.forEach(row=>row.splice(index,1));drawComm()}
 function removeRow(index){cur.rows.splice(index,1);cur.cells.splice(index,1);drawComm()}
-async function saveComm(){try{const t=clone(cur);const stored=await api.saveCommission(t);saved=stored?strT(stored):blank();cur=clone(saved);drawComm()}catch(error){alert(error.message||"Unable to save commission table")}}
+async function saveComm(){if(!await confirmDialog("Save commission table changes?",{title:"Save commission table",confirmText:"Save"}))return;try{const t=clone(cur);const stored=await api.saveCommission(t);saved=stored?strT(stored):blank();cur=clone(saved);drawComm()}catch(error){alert(error.message||"Unable to save commission table")}}
 function clearComm(){cur.cols=cur.cols.map(()=>"");cur.rows=cur.rows.map(()=>"");cur.cells=cur.cells.map(r=>r.map(()=>""));drawComm()}
 function resetComm(){cur=blank();drawComm()}
 async function commissionPage(){

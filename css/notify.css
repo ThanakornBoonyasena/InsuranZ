@@ -1,5 +1,7 @@
 .list-item{padding:12px 16px;display:flex;justify-content:space-between;gap:12px;border-bottom:1px solid var(--line)}
 .list-item:last-child{border:0}
+.notification-group{margin-bottom:20px}
+.notification-group h2{margin:0 0 8px;font-size:16px}
 .notification-item{align-items:center;transition:background .2s,opacity .2s}
 .notification-item.is-unread{background:color-mix(in srgb,var(--brand) 5%,transparent)}
 .notification-item.is-read{opacity:.5}

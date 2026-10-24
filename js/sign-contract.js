@@ -25,13 +25,13 @@ function calcContract(pkgs,claims){
 
 async function signContractPage(){
   const userID=currentBrokerUserID();
-  const [ins,discarded]=await Promise.all([api.insuranceRecords(userID,true),api.discardedContracts()]);
+  const ins=await api.insuranceRecords(userID,true);
   const edited=ins.filter(i=>i.status==="Edited");
   const rows=edited.map(i=>{
     const name=i.customer_name||i.customer?.customer_name||"-";
     return `<div class="card row ${openId===i.insurance_id?"open":""}" data-contract-id="${i.insurance_id}">
       <div class="row-head" onclick="toggleSignContract(${i.insurance_id})"><div><b>#${i.insurance_id}</b></div><div>${esc(name)}</div><div class="muted">${fmt(i.sign_date)}</div>
-        <div class="btns" onclick="event.stopPropagation()">${discarded.includes(i.insurance_id)?'<span class="s-bad" style="font-size:13px;padding:0 8px">Discarded</span>':`<button class="btn" onclick="openContract(${i.insurance_id})">Sign again</button>`}</div>
+        <div class="btns" onclick="event.stopPropagation()"><button class="btn" onclick="openContract(${i.insurance_id})">Sign again</button></div>
       </div><div class="detail" id="contract-detail-${i.insurance_id}"></div></div>`;
   }).join("");
   return `<div class="calhead"><h1>Sign Contract</h1><span style="flex:1"></span><button class="add" style="width:44px;height:36px" title="New contract" onclick="openContract()">+</button></div>${rows||'<div class="card pad">No edited insurance to sign.</div>'}`;
@@ -168,13 +168,11 @@ function summaryHTML(){
     <p class="muted">Draw your signature in the box to enable the Sign button.</p>
     <canvas id="sig" width="720" height="150"></canvas>
     <div class="actions" style="margin-top:6px"><button class="btn" onclick="clearSig()">Clear signature</button></div></div>
-  <div class="actions" id="sumacts">${cf.readonly?'<button class="btn bad" onclick="askDiscard()">Discard</button><button class="btn" onclick="closeModal()">Cancel</button>':'<button class="btn" onclick="cf.step=1;drawContract()">Back</button>'}<button class="btn ok" id="signbtn" disabled onclick="signContract()">${cf.readonly?"Sign again":"Create insurance"}</button></div>
-  <div class="actions" id="discardask" style="display:none"><span class="muted" style="margin-right:auto;align-self:center">Discard this contract? This can’t be undone.</span><button class="btn" onclick="cancelDiscard()">No</button><button class="btn bad" onclick="discardContract()">Yes, discard</button></div>`;
+  <div class="actions" id="sumacts">${cf.readonly?'<button class="btn bad" onclick="discardContract()">Discard</button><button class="btn" onclick="closeModal()">Cancel</button>':'<button class="btn" onclick="cf.step=1;drawContract()">Back</button>'}<button class="btn ok" id="signbtn" disabled onclick="signContract()">${cf.readonly?"Sign again":"Create insurance"}</button></div>`;
 }
 
-function askDiscard(){$("#sumacts").style.display="none";$("#discardask").style.display="flex"}
-function cancelDiscard(){$("#discardask").style.display="none";$("#sumacts").style.display="flex"}
 async function discardContract(){
+  if(!await confirmDialog("Discard this contract? This can’t be undone.",{title:"Discard contract",confirmText:"Discard",danger:true}))return;
   try{
     await api.discardContract(cf.insId);
     closeModal();

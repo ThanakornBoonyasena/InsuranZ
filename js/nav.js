@@ -49,6 +49,36 @@ let openId=null;
 function toggle(id){openId=openId===id?null:id;render()}
 function closeModal(){$("#overlay").classList.remove("show");$("#modal").className="card modal"}
 if($("#overlay"))$("#overlay").addEventListener("click",e=>{if(e.target.id==="overlay")closeModal()});
+function confirmDialog(message,{title="Please confirm",confirmText="Continue",cancelText="Cancel",danger=false}={}){
+  return new Promise(resolve=>{
+    const previousFocus=document.activeElement;
+    const backdrop=document.createElement("div");
+    backdrop.className="confirm-backdrop";
+    backdrop.innerHTML=`<section class="confirm-dialog" role="alertdialog" aria-modal="true" aria-labelledby="confirm-title" aria-describedby="confirm-message">
+      <h2 id="confirm-title"></h2><p id="confirm-message"></p>
+      <div class="confirm-actions"><button type="button" class="btn confirm-cancel"></button><button type="button" class="btn confirm-accept"></button></div>
+    </section>`;
+    backdrop.querySelector("#confirm-title").textContent=title;
+    backdrop.querySelector("#confirm-message").textContent=message;
+    backdrop.querySelector(".confirm-cancel").textContent=cancelText;
+    const accept=backdrop.querySelector(".confirm-accept");
+    accept.textContent=confirmText;
+    accept.classList.add(danger?"bad":"ok");
+    const finish=accepted=>{
+      document.removeEventListener("keydown",onKeyDown);
+      backdrop.remove();
+      if(previousFocus instanceof HTMLElement)previousFocus.focus();
+      resolve(accepted);
+    };
+    const onKeyDown=event=>{if(event.key==="Escape")finish(false)};
+    backdrop.addEventListener("click",event=>{if(event.target===backdrop)finish(false)});
+    backdrop.querySelector(".confirm-cancel").addEventListener("click",()=>finish(false));
+    accept.addEventListener("click",()=>finish(true));
+    document.addEventListener("keydown",onKeyDown);
+    document.body.appendChild(backdrop);
+    backdrop.querySelector(".confirm-cancel").focus();
+  });
+}
 function signOut(){store.del("role");store.del("user_id");store.del("user_name");location.href="login.html"}
 const LINKS={company:[["insurance","Insurance"],["commission","Commission"]],broker:[["sign-contract","Sign Contract"],["dashboard","Dashboard"],["customer","Customer"],["report","Report"],["appointment","Appointment"]]};
 let toastTimer;

@@ -41,12 +41,13 @@ const DEFAULTS = {
   ],
   brokerProfile:{id:"B-204",name:"Syntax Waiyakorn",points:70},
   appointments:[
-    {id:1,customer_name:"Somchai Prasert",location:"Central World, Bangkok",appointment_date:"2026-10-19T10:00",packages:["Family Health Plus"],reports:[{date:"2026-10-19T11:30",report_note:"Interested in adding family members. Will decide next week.",is_successful:true}]},
-    {id:2,customer_name:"Nattaya Wong",location:"Office, Nonthaburi",appointment_date:"2026-10-22T14:00",packages:["Life Secure 20","Auto Care"],reports:[]}
+    {id:1,customer_id:"1",customer_name:"Somchai Prasert",user_id:204,location:"Central World, Bangkok",appointment_date:"2026-10-19T10:00",packages:["Family Health Plus"],report_count:1,reports:[{report_id:1,date:"2026-10-19T11:30",create_timestamp:"2026-10-19T11:30",report_note:"Interested in adding family members. Will decide next week.",content:"Interested in adding family members. Will decide next week."}]},
+    {id:2,customer_id:"2",customer_name:"Nattaya Wong",user_id:204,location:"Office, Nonthaburi",appointment_date:"2026-10-22T14:00",packages:["Life Secure 20","Auto Care"],report_count:0,reports:[]}
   ],
   notifications: [
-    {text:"Insurance #1001 is waiting for approval.",time:"Today, 09:12"},
-    {text:"Commission for #1002 was paid out.",time:"Yesterday"}
+    {id:1,audience:"broker",text:"A broker searched the bank customer database.",time:"2026-10-24T09:12:00",is_read:false},
+    {id:2,audience:"company",text:"A new item is waiting for company review.",time:"2026-10-23T15:30:00",is_read:false},
+    {id:3,audience:"all",text:"A contract was signed for customer 1.",time:"2026-10-22T11:45:00",is_read:true}
   ]
 };
 
@@ -92,24 +93,16 @@ const api={
     return result.data?.[0]||null;
   },
   async appointmentData(){
-    const [result,customerList,reportList]=await Promise.all([
-      requestBackend("/appointments"),
-      this.customerRecords(),
-      this.reports()
+    const userID=store.get("user_id");
+    const [result,customerList]=await Promise.all([
+      requestBackend(`/appointments${userID?`?user_id=${encodeURIComponent(userID)}`:""}`),
+      this.customerRecords()
     ]);
-    const reportsByAppointment=new Map(reportList.map(appointment=>[
-      Number(appointment.appointment_id),
-      appointment.reports||[]
-    ]));
     return {
       appointments:(result.data||[]).map(appointment=>({
         ...appointment,
         id:appointment.appointment_id,
-        reports:(reportsByAppointment.get(Number(appointment.appointment_id))||[]).map(report=>({
-          ...report,
-          date:report.create_timestamp,
-          report_note:report.content
-        }))
+        reports:[]
       })),
       customers:customerList,
       packages:result.package_options||[]
@@ -134,6 +127,7 @@ const api={
     const params=new URLSearchParams();
     for(const [key,value] of Object.entries(filters))if(value!="")params.set(key,value);
     const result=await requestBank(`/bank/customers?${params.toString()}`);
+    await requestBackend("/notification/bank-customer-search",{method:"POST",body:JSON.stringify({count:Number(result.count||0)})});
     return result.data||[];
   },
   async bankCustomerFilterOptions(){
@@ -146,11 +140,7 @@ const api={
   async approveInsurance(id){return requestBackend("/insurance/approve",{method:"POST",body:JSON.stringify({insurance_id:id,insurance_condition:"ACCEPT"})})},
   async denyInsurance(id){return requestBackend("/insurance/deny",{method:"POST",body:JSON.stringify({insurance_id:id})})},
   async editInsurance(id,detail){
-    const result=await requestBackend("/insurance/edit",{method:"POST",body:JSON.stringify({insurance_id:id,additional_detail:detail})});
-    // Keep prior demo contract details for the re-sign form, but clear its discarded marker.
-    db.discarded=(db.discarded||[]).filter(insuranceID=>Number(insuranceID)!==Number(id));
-    persist();
-    return result;
+    return requestBackend("/insurance/edit",{method:"POST",body:JSON.stringify({insurance_id:id,additional_detail:detail})});
   },
   async submitSignedContract(contract){
     return requestBackend("/insurance/sign-contract",{method:"POST",body:JSON.stringify(contract)});
@@ -232,10 +222,11 @@ const api={
     const result=await requestBackend(`/selling-cases${query}`);
     return result.data||[];
   },
-  async reports(summary=false,appointmentID=null){
+  async reports(summary=false,appointmentID=null,userID=store.get("user_id")){
     const params=new URLSearchParams();
     if(summary)params.set("summary","true");
     if(appointmentID)params.set("appointment_id",String(appointmentID));
+    if(userID)params.set("user_id",String(userID));
     const query=params.toString()?`?${params}`:"";
     const result=await requestBackend(`/reports${query}`);
     return result.data||[];
@@ -264,24 +255,23 @@ const api={
     db.contracts.push({...c,contract_id});persist();
     return {contract_id};
   },
-  async discardedContracts(){return copy(db.discarded||[])},
   async discardContract(insurance_id){
-    db.discarded=db.discarded||[];
-    if(!db.discarded.includes(insurance_id))db.discarded.push(insurance_id);
-    persist();
-    return {};
+    return requestBackend("/insurance/discard",{method:"POST",body:JSON.stringify({insurance_id:Number(insurance_id),user_id:Number(store.get("user_id"))})});
   },
   async notifications(){
-    const result=await requestBackend("/notification");
+    const params=new URLSearchParams({user_id:String(store.get("user_id")||""),role:String(store.get("role")||"")});
+    const result=await requestBackend(`/notification?${params.toString()}`);
     return (result.data||[]).map(n=>({
       ...n,
       id:n.notification_id??n.id,
       is_read:n.is_read===true,
+      audience:n.audience??"all",
       text:n.content??n.text??"",
       time:n.create_timestamp??n.created_at??n.time??""
     }));
   },
   async markNotificationRead(id){
-    return requestBackend(`/notification/${encodeURIComponent(id)}/read`,{method:"PATCH"});
+    const params=new URLSearchParams({user_id:String(store.get("user_id")||""),role:String(store.get("role")||"")});
+    return requestBackend(`/notification/${encodeURIComponent(id)}/read?${params.toString()}`,{method:"PATCH"});
   }
 };
