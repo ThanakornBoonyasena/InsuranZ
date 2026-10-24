@@ -6,6 +6,9 @@ button{font:inherit;cursor:pointer}
 .nav .links{display:flex;gap:6px;flex:1;justify-content:center}
 .nav a{color:var(--muted);text-decoration:none;padding:6px 2px;margin:0 14px;font-size:14px;background:linear-gradient(var(--text),var(--text)) 0 100%/0 1px no-repeat;transition:color .2s,background-size .25s}.nav a:hover{color:var(--text);background-size:100% 1px}
 .nav a.active{color:var(--text);background-size:100% 1px}
+.nav a.icon-btn,.nav a.profile{margin:0;background:none;color:var(--text);text-decoration:none}
+.nav a.icon-btn{padding:4px}
+.nav a.profile{padding:4px 12px 4px 4px}
 .icon-btn{background:none;border:0;font-size:20px;position:relative}
 .dot{position:absolute;top:0;right:-2px;background:var(--bad);color:#fff;font-size:10px;border-radius:9px;padding:0 5px}
 .dot.hidden{display:none}
@@ -30,6 +33,7 @@ h1{font-size:22px;margin:0 0 16px;letter-spacing:.02em}
 .badge{font-size:12px;padding:1px 8px;border-radius:3px;border:1px solid currentColor}
 .s-ok{color:var(--ok)}.s-bad{color:var(--bad)}.s-warn{color:var(--warn)}
 .overlay{position:fixed;inset:0;background:rgba(0,0,0,.5);display:none;place-items:center;z-index:20;padding:16px}
+.embedded #nav{display:none}
 .overlay.show{display:grid}
 .modal{width:100%;max-width:460px;padding:20px;max-height:90vh;overflow:auto}
 label{display:block;font-size:13px;color:var(--muted);margin:10px 0 4px}

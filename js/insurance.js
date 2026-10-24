@@ -9,6 +9,7 @@
         <div class="btns insurance-actions" onclick="event.stopPropagation()">
           ${i.status==="Pending"?`<button class="btn ok" onclick="setStatus(${i.insurance_id},true)">Approve</button>`:""}
           ${i.status==="Pending"?`<button class="btn bad" onclick="setStatus(${i.insurance_id},false)">Deny</button>`:""}
+          ${i.status==="Approve"?`<button class="btn pri" onclick="sendInsurance(${i.insurance_id})">Send</button>`:""}
           ${i.status==="Pending"?`<button class="btn" onclick="editForm(${i.insurance_id})">Edit</button>`:""}
         </div>
       </div><div class="detail insurance-detail" id="insurance-detail-${i.insurance_id}"></div></article>`;
@@ -43,6 +44,16 @@ async function setStatus(id,approved){
   }catch(error){
     showInsuranceError(error);
   }
+}
+
+async function sendInsurance(id){
+  if(!await confirmDialog(`Send approved insurance #${id}?`,{title:"Send insurance",confirmText:"Send"}))return;
+  try{
+    await api.sendInsurance(id);
+    insuranceDetailsCache.delete(`all:${id}`);
+    openId=null;
+    await render();
+  }catch(error){showInsuranceError(error)}
 }
 
 async function editForm(id){

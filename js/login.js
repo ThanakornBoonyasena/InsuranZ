@@ -41,7 +41,7 @@ loginForm.addEventListener("submit",async event=>{
       persist();
     }
 
-    location.href=accountRole==="company"?"insurance.html":"dashboard.html";
+    location.href=accountRole==="company"?"workspace.html?page=insurance":"workspace.html?page=dashboard";
   }catch(error){
     loginMessage.textContent=error instanceof TypeError
       ?"Unable to connect to the server. Check that the backend is running."

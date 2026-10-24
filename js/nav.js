@@ -5,7 +5,7 @@ const fmt=d=>new Date(d).toLocaleDateString("en-GB",{day:"2-digit",month:"short"
 const store={get:k=>{try{return sessionStorage.getItem(k)}catch{return null}},set:(k,v)=>{try{sessionStorage.setItem(k,v)}catch{}},del:k=>{try{sessionStorage.removeItem(k)}catch{}}};
 const currentBrokerUserID=()=>store.get("user_id")||String(db.brokerProfile.id||"").match(/\d+$/)?.[0]||"";
 const role=store.get("role");
-const statusBadge=s=>s===true||s==="Approve"?'<span class="badge s-ok">Approved</span>':s===false||s==="Deny"?'<span class="badge s-bad">Denied</span>':s==="Edited"?'<span class="badge">Edited</span>':'<span class="badge s-warn">Pending</span>';
+const statusBadge=s=>s===true||s==="Approve"?'<span class="badge s-ok">Approved</span>':s==="Send"?'<span class="badge s-ok">Sent</span>':s===false||s==="Deny"?'<span class="badge s-bad">Denied</span>':s==="Edited"?'<span class="badge">Edited</span>':'<span class="badge s-warn">Pending</span>';
 function insuranceDetailHTML(i){
   const customer=i.customer||{};
   const pkg=i.package||{};
@@ -79,7 +79,7 @@ function confirmDialog(message,{title="Please confirm",confirmText="Continue",ca
     backdrop.querySelector(".confirm-cancel").focus();
   });
 }
-function signOut(){store.del("role");store.del("user_id");store.del("user_name");location.href="login.html"}
+function signOut(){store.del("role");store.del("user_id");store.del("user_name");if(window.self!==window.top)window.top.location.href="login.html";else location.href="login.html"}
 const LINKS={company:[["insurance","Insurance"],["commission","Commission"]],broker:[["sign-contract","Sign Contract"],["dashboard","Dashboard"],["customer","Customer"],["report","Report"],["appointment","Appointment"]]};
 let toastTimer;
 function showToast(message){
@@ -91,13 +91,26 @@ function showToast(message){
   toastTimer=setTimeout(()=>toast.classList.remove("visible"),4000);
 }
 function publishNotifications(list){
+  window.__notificationSnapshot=list;
   const unread=list.filter(item=>!item.is_read).length;
   const badge=$(".nav .dot");
   if(badge){badge.textContent=String(unread);badge.classList.toggle("hidden",unread===0)}
   window.dispatchEvent(new CustomEvent("notification:list",{detail:list}));
+  if(window.__workspaceShell){
+    const frame=$("#workspace-frame");
+    if(frame?.dataset.page==="notify")frame.contentWindow?.postMessage({type:"notification-list",data:list},location.origin);
+  }
 }
 let notificationQueryFailed=false;
 let notificationRefreshInProgress=false;
+function renderNavigation(page,unreadCount=0){
+  const links=(LINKS[role]||[]).map(([h,t])=>`<a href="${window.__workspaceShell?`${h}.html?embedded=1`:`workspace.html?page=${h}`}" data-page="${h}" class="${page===h?"active":""}" ${window.__workspaceShell?`onclick="return navigateContentPage('${h}')"`:""}>${t}</a>`).join("");
+  const unread=Number(unreadCount)||0;
+  const notifyHref=window.__workspaceShell?"notify.html?embedded=1":"workspace.html?page=notify";
+  const profileHref=window.__workspaceShell?"profile.html?embedded=1":"workspace.html?page=profile";
+  const routeClick=target=>window.__workspaceShell?`onclick="return navigateContentPage('${target}')"`:"";
+  $("#nav").innerHTML=`<header class="nav"><a class="icon-btn" title="Notifications" aria-label="Notifications" href="${notifyHref}" ${routeClick("notify")}>&#9993;<span class="dot ${unread===0?"hidden":""}">${unread}</span></a><nav class="links">${links}</nav><a class="profile" href="${profileHref}" ${routeClick("profile")}><span class="avatar">SW</span><span class="n">Profile</span></a></header>`;
+}
 async function refreshNotifications(){
   if(notificationRefreshInProgress)return;
   notificationRefreshInProgress=true;
@@ -114,14 +127,18 @@ async function refreshNotifications(){
   }
 }
 async function mountNav(page){
+  if(window.self!==window.top)return;
   if(!role){location.href="login.html";return}
-  let notifications=[];
-  try{notifications=await api.notifications();notificationQueryFailed=false}
-  catch(error){notificationQueryFailed=true;showToast(error.message||"Unable to load notifications");window.dispatchEvent(new CustomEvent("notification:error",{detail:error}))}
-  const links=(LINKS[role]||[]).map(([h,t])=>`<a href="${h}.html" class="${page===h?"active":""}">${t}</a>`).join("");
-  const unread=notifications.filter(item=>!item.is_read).length;
-  $("#nav").innerHTML=`<header class="nav"><button class="icon-btn" title="Notifications" onclick="location.href='notify.html'">&#9993;<span class="dot ${unread===0?"hidden":""}">${unread}</span></button><nav class="links">${links}</nav><button class="profile" onclick="location.href='profile.html'"><span class="avatar">SW</span><span class="n">Profile</span></button></header>`;
-  publishNotifications(notifications);
+	renderNavigation(page);
+	try{
+	  const notifications=await api.notifications();
+	  notificationQueryFailed=false;
+	  publishNotifications(notifications);
+	}catch(error){
+	  notificationQueryFailed=true;
+	  showToast(error.message||"Unable to load notifications");
+	  window.dispatchEvent(new CustomEvent("notification:error",{detail:error}));
+	}
   if(window.__notificationPollTimer)clearInterval(window.__notificationPollTimer);
   window.__notificationPollTimer=setInterval(refreshNotifications,2000);
 }

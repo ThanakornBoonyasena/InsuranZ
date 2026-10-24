@@ -1,3 +1,4 @@
+$("#main").innerHTML='<h1>Notifications</h1><div class="card pad">Loading notifications...</div>';
 mountNav("notify");
 let lastNotificationKey="";
 let notificationListLoaded=false;
@@ -36,9 +37,20 @@ async function markNotificationRead(id){
   }
 }
 window.addEventListener("notification:list",event=>renderNotifications(event.detail||[]));
+window.addEventListener("message",event=>{
+  if(event.source===window.parent&&event.origin===location.origin&&event.data?.type==="notification-list"){
+    renderNotifications(event.data.data||[]);
+  }
+});
 window.addEventListener("notification:error",event=>{
   if(!notificationListLoaded){
     const error=event.detail;
     $("#main").innerHTML=`<h1>Notifications</h1><div class="card pad">${esc(error?.message||"Unable to load notifications")}</div>`;
   }
 });
+if(window.self!==window.top){
+  api.notifications().then(renderNotifications).catch(error=>{
+    notificationListLoaded=true;
+    $("#main").innerHTML=`<h1>Notifications</h1><div class="card pad">${esc(error?.message||"Unable to load notifications")}</div>`;
+  });
+}

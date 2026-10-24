@@ -1,0 +1,8 @@
+.workspace-body{height:100vh;height:100dvh;min-height:0;display:flex;flex-direction:column;overflow:hidden}
+.workspace-body #nav{flex:none}
+#workspace-frame{display:block;flex:1;min-height:0;width:100%;border:0;background:var(--bg)}
+.nav .icon-btn{display:inline-flex;align-items:center;justify-content:center;color:var(--text);text-decoration:none;width:36px;height:36px}
+.nav .profile{text-decoration:none}
+.nav>a.icon-btn,.nav>a.profile{margin:0;background:none}
+.nav>a.icon-btn{padding:4px}
+.nav>a.profile{padding:4px 12px 4px 4px}
