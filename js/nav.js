@@ -12,7 +12,7 @@ function insuranceDetailHTML(i){
   const age=customer.customer_age??i.customer_age??"-";
   const health=customer.health_info||i.health_info||"-";
   const healthDetail=customer.health_detail||i.health_detail||"-";
-  const customerSince=customer.create_timestamp||i.customer_since||"";
+  const queryTimestamp=customer.query_timestamp||i.query_timestamp||"";
   const payment=`${Number(pkg.package_price||0).toLocaleString()} every ${pkg.payment_period||"-"} month(s)`;
   const sellingCase=i.selling_case_id?"#"+i.selling_case_id+" · "+(i.selling_case_status||""):(i.selling_case||"-");
   const packageExtra=[
@@ -26,7 +26,7 @@ function insuranceDetailHTML(i){
     <div><b>Customer age</b>${age}</div>
     <div><b>Health info</b>${esc(health)}</div>
     <div><b>Health detail</b>${esc(healthDetail)}</div>
-    <div><b>Customer since</b>${customerSince?fmt(customerSince):"-"}</div>
+    <div><b>Query timestamp</b>${queryTimestamp?fmt(queryTimestamp):"-"}</div>
     <div><b>Claim amount</b>THB ${Number(i.insurance_claim||0).toLocaleString()}</div>
     <div class="insurance-condition"><b>Condition</b>${esc(i.additional_detail||"-")}</div>
     <div><b>Package name</b>${esc(pkg.package_name||i.package_name||"-")}</div>

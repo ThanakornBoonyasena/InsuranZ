@@ -7,7 +7,6 @@ let customerFiltersVisible=false;
 let customerGenderMenu=null;
 let saCustomers=[];
 let bankFilter={q:"",salary_min:"",salary_max:""};
-let bankMatches=[];
 
 async function customerPage(){
   saCustomers=await api.customerRecords();
@@ -130,7 +129,7 @@ function customerDetailHTML(customer){
     <div><b>Gender</b>${esc(customer.customer_gender||"-")}</div>
     <div><b>Sex</b>${esc(customer.customer_sex||"-")}</div>
     <div><b>Date of birth</b>${customer.customer_dob?fmt(customer.customer_dob):"-"}</div>
-    <div><b>Customer since</b>${customer.create_timestamp?fmt(customer.create_timestamp):"-"}</div>
+    <div><b>Query timestamp</b>${customer.query_timestamp?fmt(customer.query_timestamp):"-"}</div>
     <div><b>Yearly salary</b>${customer.salary_per_month==null?"-":(Number(customer.salary_per_month)*12).toLocaleString("en")}</div>
     <div style="grid-column:1/-1"><b>Health condition</b>${esc(customer.health_info||"-")}</div>
     <div style="grid-column:1/-1"><b>Health detail</b>${esc(customer.health_detail||"-")}</div>`;
@@ -176,36 +175,21 @@ async function sendQuery(){
   $("#modal").innerHTML='<h1>Searching bank customers...</h1>';
   try{
     const results=await api.searchBankCustomers(bankFilter);
-    const existing=new Set(saCustomers.map(customer=>Number(customer.customer_id)));
-    bankMatches=results.filter(customer=>!existing.has(Number(customer.customer_id)));
-    drawBankMatches(results.length-bankMatches.length);
+    const saved=results.length?await api.addCustomers(results):{count:0,updated_count:0};
+    try{await api.notifyBankCustomerSearch(results.length)}catch(error){showToast(error.message||"Customers were saved, but the broker notification failed")}
+    drawBankMatches(results,saved.count||0,saved.updated_count||0);
   }catch(error){
     $("#modal").innerHTML=`<h1>Bank search failed</h1><p class="error">${esc(error.message||"Unable to search bank customers")}</p><div class="actions"><button class="btn" onclick="custForm()">Back</button><button class="btn" onclick="closeModal()">Cancel</button></div>`;
   }
 }
 
-function drawBankMatches(alreadyAdded=0){
-  const options=bankMatches.map(customer=>`<label class="bank-candidate"><input type="checkbox" value="${customer.customer_id}" checked><span><b>${esc(customer.customer_name)}</b><br><span class="muted">#${customer.customer_id} · ${esc(customer.customer_email||customer.telephone_number||"No contact details")}</span></span></label>`).join("");
+function drawBankMatches(results,added,updated){
+  const options=results.map(customer=>`<div class="bank-candidate"><span><b>${esc(customer.customer_name)}</b><br><span class="muted">Bank ID ${customer.customer_id} · ${esc(customer.customer_email||customer.telephone_number||"No contact details")}</span></span></div>`).join("");
   $("#modal").className="card modal";
-  $("#modal").innerHTML=`<h1>Select bank customers</h1><p class="muted">${bankMatches.length} new result${bankMatches.length===1?"":"s"}${alreadyAdded?` · ${alreadyAdded} already in sa`:""}</p>${options||'<p class="muted">No new customers found. They may already be in sa.</p>'}<div class="actions"><button class="btn" onclick="custForm()">Back</button><button class="btn" onclick="closeModal()">Cancel</button><button class="btn ok" onclick="addSelected()" ${bankMatches.length?"":"disabled"}>Add selected</button></div>`;
+  $("#modal").innerHTML=`<h1>Bank query complete</h1><p class="muted">${added} customer${added===1?"":"s"} added with new SA IDs; ${updated} existing customer${updated===1?"":"s"} had query timestamps updated.</p>${options||'<p class="muted">No customers matched this query.</p>'}<div class="actions"><button class="btn" onclick="custForm()">Back</button><button class="btn ok" onclick="finishBankQuery()">Done</button></div>`;
 }
 
-async function addSelected(){
-  const selected=new Set(Array.from($("#modal").querySelectorAll('input[type="checkbox"]:checked'),input=>Number(input.value)));
-  const customers=bankMatches.filter(customer=>selected.has(Number(customer.customer_id)));
-  if(!customers.length)return;
-  const button=Array.from($("#modal").querySelectorAll("button")).find(item=>item.textContent==="Add selected");
-  if(button){button.disabled=true;button.textContent="Adding..."}
-  try{
-    const result=await api.addCustomers(customers);
-    closeModal();
-    await render();
-    if(result.count<customers.length)console.info(`${customers.length-result.count} customer(s) were already in sa.`);
-  }catch(error){
-    invalidSearch(error.message||"Unable to add customers to sa.");
-    if(button){button.disabled=false;button.textContent="Add selected"}
-  }
-}
+async function finishBankQuery(){closeModal();await render()}
 
 async function render(){
   $("#main").innerHTML='<h1>Customer</h1><div class="card pad">Loading customers from sa...</div>';

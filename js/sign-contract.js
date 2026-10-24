@@ -154,7 +154,7 @@ function summaryHTML(){
   <div class="sec"><h2>Customer</h2><div class="sum">
     ${kv("Name",c.customer_name)}${kv("Age",ageFromDOB(c.customer_dob)??"")}${kv("Customer ID",c.customer_id)}${kv("Telephone number",c.telephone_number)}
     ${kv("Email",c.customer_email)}${kv("Address",c.customer_address)}
-    ${kv("Gender",c.customer_gender)}${kv("Sex",c.customer_sex)}${kv("Date of birth",c.customer_dob?fmt(c.customer_dob):"")}${kv("Customer since",c.create_timestamp?fmt(c.create_timestamp):"")}
+    ${kv("Gender",c.customer_gender)}${kv("Sex",c.customer_sex)}${kv("Date of birth",c.customer_dob?fmt(c.customer_dob):"")}${kv("Query timestamp",c.query_timestamp?fmt(c.query_timestamp):"")}
     ${kv("Health condition",c.health_info)}${kv("Health detail",c.health_detail,true)}
   </div></div>
   <div class="sec job-description"><h2>Job description</h2><div class="customer-job-list">${jobsHTML}</div></div>
