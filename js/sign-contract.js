@@ -25,10 +25,9 @@ function calcContract(pkgs,claims){
 
 async function signContractPage(){
   const userID=currentBrokerUserID();
-  const ins=await api.insuranceRecords(userID,true);
-  const edited=ins.filter(i=>i.status==="Edited");
+  const edited=await api.signContractRecords(userID);
   const rows=edited.map(i=>{
-    const name=i.customer_name||i.customer?.customer_name||"-";
+    const name=i.customer_name||"-";
     return `<div class="card row ${openId===i.insurance_id?"open":""}" data-contract-id="${i.insurance_id}">
       <div class="row-head" onclick="toggleSignContract(${i.insurance_id})"><div><b>#${i.insurance_id}</b></div><div>${esc(name)}</div><div class="muted">${fmt(i.sign_date)}</div>
         <div class="btns" onclick="event.stopPropagation()"><button class="btn" onclick="openContract(${i.insurance_id})">Sign again</button></div>
@@ -73,8 +72,9 @@ async function toggleSignContract(id){
   if(!detail)return;
   detail.innerHTML='<span class="muted">Loading contract details...</span>';
   try{
-    const record=await loadInsuranceDetail(id,currentBrokerUserID());
-    if(openId===id)detail.innerHTML=`<div><b>Payment</b>${Number(record.package?.package_price||0).toLocaleString()} every ${record.package?.payment_period||"-"} month(s)</div><div style="grid-column:1/-1"><b>Condition</b>${esc(record.additional_detail)||"—"}</div>`;
+    const record=await api.signContractExpanded(id,currentBrokerUserID());
+    if(!record)throw new Error("Unable to load contract details");
+    if(openId===id)detail.innerHTML=`<div><b>Payment</b>${Number(record.package_price||0).toLocaleString()} every ${record.payment_period||"-"} month(s)</div><div style="grid-column:1/-1"><b>Condition</b>${esc(record.additional_detail)||"—"}</div>`;
   }catch(error){if(openId===id)detail.innerHTML=`<span class="s-bad">${esc(error.message||"Unable to load contract details")}</span>`}
 }
 

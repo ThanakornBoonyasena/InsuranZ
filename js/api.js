@@ -83,6 +83,16 @@ const api={
     const result=await requestBackend(`/insurance/insurance-info?${params}`);
     return result.data?.[0]||null;
   },
+  async signContractRecords(userID){
+    const params=new URLSearchParams({scSummary:"true",user_id:String(userID)});
+    const result=await requestBackend(`/insurance/insurance-info?${params}`);
+    return result.data||[];
+  },
+  async signContractExpanded(id,userID){
+    const params=new URLSearchParams({scSummary:"false",insurance_id:String(id),user_id:String(userID)});
+    const result=await requestBackend(`/insurance/insurance-info?${params}`);
+    return result.data||null;
+  },
   async customerRecords(summary=false){
     const query=summary?"?summary=true":"";
     const result=await requestBackend(`/customer/customer-info${query}`);
