@@ -97,18 +97,20 @@ const api={
       return {...record,status:statusMap[String(condition).trim().toUpperCase()]||condition||"Pending"};
     });
   },
-  async insuranceRecord(id,userID){
+  async insuranceRecord(id,userID,view){
     const params=new URLSearchParams({insurance_id:String(id)});
     if(userID)params.set("user_id",userID);
+    if(view)params.set("view",view);
     const result=await requestBackend(`/insurance/insurance-info?${params}`);
     return result.data?.[0]||null;
   },
-  async customerRecords(summary=false, forAppointmentPage=false, forCustomerPage=false, filters=[]){
+  async customerRecords(summary=false, forAppointmentPage=false, forCustomerPage=false, filters=[], forContractPage=false){
     const params=new URLSearchParams();
     if (summary) params.set("summary", true);
     if (forAppointmentPage) params.set("forAppointmentPage", true);
     if (forCustomerPage) params.set("forCustomerPage", true);
     if (forCustomerPage && filters.length) params.set("filters", JSON.stringify(filters));
+    if (forContractPage) params.set("forContractPage", true);
     const query=params.toString()?`?${params}`:"";
     console.log(query)
     const result=await requestBackend(`/customer/customer-info${query}`);
@@ -151,6 +153,15 @@ const api={
       customers:customerList,
       packages:packageList
     };
+  },
+  async appointmentRecord(id,userID=store.get("user_id")){
+    const query=new URLSearchParams({appointment_id:String(id),user_id:String(userID||"")});
+    const result=await requestBackend(`/appointments?${query}`);
+    return result.data||null;
+  },
+  async appointmentPackageOptions(){
+    const result=await requestBackend("/appointments?package_options=true");
+    return result.data||[];
   },
   async saveAppointment(appointment){
     const payload={
