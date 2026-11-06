@@ -160,8 +160,10 @@ const api={
     return result.data||null;
   },
   async appointmentPackageOptions(){
-    const result=await requestBackend("/appointments?package_options=true");
-    return result.data||[];
+    return loadAppointmentPackageOptions();
+  },
+  async appointmentCustomerOptions(){
+    return loadAppointmentCustomerOptions();
   },
   async saveAppointment(appointment){
     const payload={
