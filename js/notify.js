@@ -30,6 +30,7 @@ async function markNotificationRead(id){
     await api.markNotificationRead(id);
     const list=await api.notifications();
     publishNotifications(list);
+    showToast("Notification marked as read.","success");
   }catch(error){
     // Keep notification request failures from displaying an error toast.
   }

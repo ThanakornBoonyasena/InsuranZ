@@ -82,13 +82,14 @@ function confirmDialog(message,{title="Please confirm",confirmText="Continue",ca
 function signOut(){store.del("role");store.del("user_id");store.del("user_name");if(window.self!==window.top)window.top.location.href="login.html";else location.href="login.html"}
 const LINKS={company:[["insurance","Insurance"],["commission","Commission"]],broker:[["sign-contract","Sign Contract"],["dashboard","Dashboard"],["customer","Customer"],["report","Report"],["appointment","Appointment"]]};
 let toastTimer;
-function showToast(message){
+function showToast(message,type="error"){
   let toast=$("#app-toast");
   if(!toast){toast=document.createElement("div");toast.id="app-toast";toast.className="app-toast";toast.setAttribute("role","status");document.body.appendChild(toast)}
   toast.textContent=message||"Something went wrong";
+  toast.classList.toggle("success",type==="success");
   toast.classList.add("visible");
   clearTimeout(toastTimer);
-  toastTimer=setTimeout(()=>toast.classList.remove("visible"),4000);
+  toastTimer=setTimeout(()=>toast.classList.remove("visible"),3000);
 }
 function publishNotifications(list){
   window.__notificationSnapshot=list;

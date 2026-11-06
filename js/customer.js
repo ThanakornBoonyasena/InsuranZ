@@ -9,7 +9,7 @@ let saCustomers=[];
 let bankFilter={q:"",salary_min:"",salary_max:""};
 
 async function customerPage(){
-  saCustomers=await api.customerRecords();
+  saCustomers=await api.customerRecords(false, false, true);
   return `<div class="customer-page-head"><h1>Customer</h1><button class="add" style="width:44px;height:36px" title="Add bank customers" aria-label="Add bank customers" onclick="custForm()">+</button></div>
     <button class="btn customer-filter-toggle" aria-expanded="${customerFiltersVisible}" onclick="toggleCustomerFilters()">Filter</button>
     <div class="customer-filter-panel" id="customer-filter-panel" ${customerFiltersVisible?"":"hidden"}></div>
@@ -177,6 +177,7 @@ async function sendQuery(){
     const results=await api.searchBankCustomers(bankFilter);
     const saved=results.length?await api.addCustomers(results):{count:0,updated_count:0};
     try{await api.notifyBankCustomerSearch(results.length)}catch(error){showToast(error.message||"Customers were saved, but the broker notification failed")}
+    if(saved.count||saved.updated_count)showToast(`${saved.count||0} customer${saved.count===1?"":"s"} added; ${saved.updated_count||0} updated.`,"success");
     drawBankMatches(results,saved.count||0,saved.updated_count||0);
   }catch(error){
     $("#modal").innerHTML=`<h1>Bank search failed</h1><p class="error">${esc(error.message||"Unable to search bank customers")}</p><div class="actions"><button class="btn" onclick="custForm()">Back</button><button class="btn" onclick="closeModal()">Cancel</button></div>`;
