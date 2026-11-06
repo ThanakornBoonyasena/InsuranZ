@@ -77,9 +77,10 @@ const api={
       return {...record,status:statusMap[String(condition).trim().toUpperCase()]||condition||"Pending"};
     });
   },
-  async insuranceRecord(id,userID){
+  async insuranceRecord(id,userID,view){
     const params=new URLSearchParams({insurance_id:String(id)});
     if(userID)params.set("user_id",userID);
+    if(view)params.set("view",view);
     const result=await requestBackend(`/insurance/insurance-info?${params}`);
     return result.data?.[0]||null;
   },

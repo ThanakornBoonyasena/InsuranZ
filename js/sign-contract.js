@@ -38,7 +38,7 @@ async function signContractPage(){
 async function openContract(insId){
   try{
     const userID=currentBrokerUserID();
-    const [customers,packages,i,contracts]=await Promise.all([api.customerRecords(),api.packages(),insId?api.insuranceRecord(insId,userID):Promise.resolve(null),api.contracts()]);
+    const [customers,packages,i,contracts]=await Promise.all([api.customerRecords(),api.packages(),insId?api.insuranceRecord(insId,userID,"sign_contract"):Promise.resolve(null),api.contracts()]);
     CC={customers,packages:i?[i.package]:packages};
     let cid=i&&(i.customer_id??i.customer?.customer_id);
     if((cid===undefined||cid===null||cid==="")&&i)cid=customers.find(c=>c.customer_name===(i.customer_name||i.customer?.customer_name))?.customer_id;
