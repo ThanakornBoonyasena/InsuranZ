@@ -39,7 +39,7 @@ async function openContract(insId){
   try{
     const userID=currentBrokerUserID();
     const [customers,packages,i,contracts]=await Promise.all([
-      insId?Promise.resolve([]):api.customerRecords(false,false,false,true),
+      insId?Promise.resolve([]):api.customerRecords(false,false,false,[],true),
       insId?Promise.resolve(null):api.packages(),
       insId?api.insuranceRecord(insId,userID,"sign_contract"):Promise.resolve(null),
       api.contracts()
