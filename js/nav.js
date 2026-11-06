@@ -101,7 +101,6 @@ function publishNotifications(list){
     if(frame?.dataset.page==="notify")frame.contentWindow?.postMessage({type:"notification-list",data:list},location.origin);
   }
 }
-let notificationQueryFailed=false;
 let notificationRefreshInProgress=false;
 function renderNavigation(page,unreadCount=0){
   const links=(LINKS[role]||[]).map(([h,t])=>`<a href="${window.__workspaceShell?`${h}.html?embedded=1`:`workspace.html?page=${h}`}" data-page="${h}" class="${page===h?"active":""}" ${window.__workspaceShell?`onclick="return navigateContentPage('${h}')"`:""}>${t}</a>`).join("");
@@ -116,12 +115,9 @@ async function refreshNotifications(){
   notificationRefreshInProgress=true;
   try{
     const list=await api.notifications();
-    notificationQueryFailed=false;
     publishNotifications(list);
   }catch(error){
-    if(!notificationQueryFailed)showToast(error.message||"Unable to load notifications");
-    notificationQueryFailed=true;
-    window.dispatchEvent(new CustomEvent("notification:error",{detail:error}));
+    // Notification request failures are intentionally silent.
   }finally{
     notificationRefreshInProgress=false;
   }
@@ -132,12 +128,9 @@ async function mountNav(page){
 	renderNavigation(page);
 	try{
 	  const notifications=await api.notifications();
-	  notificationQueryFailed=false;
 	  publishNotifications(notifications);
 	}catch(error){
-	  notificationQueryFailed=true;
-	  showToast(error.message||"Unable to load notifications");
-	  window.dispatchEvent(new CustomEvent("notification:error",{detail:error}));
+	  // Notification request failures are intentionally silent.
 	}
   if(window.__notificationPollTimer)clearInterval(window.__notificationPollTimer);
   window.__notificationPollTimer=setInterval(refreshNotifications,2000);

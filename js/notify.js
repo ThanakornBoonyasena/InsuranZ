@@ -1,7 +1,6 @@
 $("#main").innerHTML='<h1>Notifications</h1><div class="card pad">Loading notifications...</div>';
 mountNav("notify");
 let lastNotificationKey="";
-let notificationListLoaded=false;
 function notificationDateTime(value){
   if(!value)return "-";
   const match=String(value).match(/^(\d{4})-(\d{2})-(\d{2})[T ](\d{2}):(\d{2})/);
@@ -14,7 +13,6 @@ function renderNotifications(list){
   const key=JSON.stringify(list.map(item=>[item.id,item.text,item.time,item.is_read,item.audience]));
   if(key===lastNotificationKey)return;
   lastNotificationKey=key;
-  notificationListLoaded=true;
   const rowsFor=audience=>list.filter(item=>(item.audience||"all")===audience).map(item=>`<div class="list-item notification-item ${item.is_read?"is-read":"is-unread"}">
     <div class="notification-copy"><span class="notification-text">${esc(item.text)}</span><span class="muted">${notificationDateTime(item.time)}</span></div>
     <div class="notification-state">${item.is_read?'<span class="badge s-warn">Read</span>':'<span class="badge s-ok">Unread</span>'}
@@ -33,7 +31,7 @@ async function markNotificationRead(id){
     const list=await api.notifications();
     publishNotifications(list);
   }catch(error){
-    showToast(error.message||"Unable to mark notification as read");
+    // Keep notification request failures from displaying an error toast.
   }
 }
 window.addEventListener("notification:list",event=>renderNotifications(event.detail||[]));
@@ -42,15 +40,6 @@ window.addEventListener("message",event=>{
     renderNotifications(event.data.data||[]);
   }
 });
-window.addEventListener("notification:error",event=>{
-  if(!notificationListLoaded){
-    const error=event.detail;
-    $("#main").innerHTML=`<h1>Notifications</h1><div class="card pad">${esc(error?.message||"Unable to load notifications")}</div>`;
-  }
-});
 if(window.self!==window.top){
-  api.notifications().then(renderNotifications).catch(error=>{
-    notificationListLoaded=true;
-    $("#main").innerHTML=`<h1>Notifications</h1><div class="card pad">${esc(error?.message||"Unable to load notifications")}</div>`;
-  });
+  api.notifications().then(renderNotifications).catch(()=>{});
 }
