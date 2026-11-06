@@ -83,11 +83,12 @@ const api={
     const result=await requestBackend(`/insurance/insurance-info?${params}`);
     return result.data?.[0]||null;
   },
-  async customerRecords(summary=false, forAppointmentPage=false, forCustomerPage=false){
+  async customerRecords(summary=false, forAppointmentPage=false, forCustomerPage=false, filters=[]){
     const params=new URLSearchParams();
     if (summary) params.set("summary", true);
     if (forAppointmentPage) params.set("forAppointmentPage", true);
     if (forCustomerPage) params.set("forCustomerPage", true);
+    if (forCustomerPage && filters.length) params.set("filters", JSON.stringify(filters));
     const query=params.toString()?`?${params}`:"";
     console.log(query)
     const result=await requestBackend(`/customer/customer-info${query}`);
