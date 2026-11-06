@@ -83,6 +83,16 @@ const api={
     const result=await requestBackend(`/insurance/insurance-info?${params}`);
     return result.data?.[0]||null;
   },
+  async customerRecords(summary=false, forAppointmentPage=false, forCustomerPage=false){
+    const params=new URLSearchParams();
+    if (summary) params.set("summary", true);
+    if (forAppointmentPage) params.set("forAppointmentPage", true);
+    if (forCustomerPage) params.set("forCustomerPage", true);
+    const query=params.toString()?`?${params}`:"";
+    console.log(query)
+    const result=await requestBackend(`/customer/customer-info${query}`);
+    return result.data||[];
+  },
   async signContractRecords(userID){
     const params=new URLSearchParams({scSummary:"true",user_id:String(userID)});
     const result=await requestBackend(`/insurance/insurance-info?${params}`);
@@ -92,17 +102,6 @@ const api={
     const params=new URLSearchParams({scSummary:"false",insurance_id:String(id),user_id:String(userID)});
     const result=await requestBackend(`/insurance/insurance-info?${params}`);
     return result.data||null;
-  },
-
-  async customerRecords(summary=false, apSummary=false, customerList=false){
-    const params=new URLSearchParams();
-    if (summary) params.set("summary", true);
-    if (apSummary) params.set("apSummary", true);
-    if (customerList) params.set("customerList", true);
-    const query=params.toString()?`?${params}`:"";
-    console.log(query)
-    const result=await requestBackend(`/customer/customer-info${query}`);
-    return result.data||[];
   },
   async customerRecord(id){
     const result=await requestBackend(`/customer/customer-info?customer_id=${encodeURIComponent(id)}`);
