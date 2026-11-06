@@ -140,7 +140,7 @@ async function toggleCustomer(id){
   detail.innerHTML="<span class=muted>Loading customer details...</span>";
   try{
     let customer=customerDetailsCache.get(String(id));
-    if(!customer){customer=await api.customerRecord(id);if(!customer)throw new Error("Customer not found");customerDetailsCache.set(String(id),customer)}
+    if(!customer){customer=await api.customerPageDetail(id);if(!customer)throw new Error("Customer not found");customerDetailsCache.set(String(id),customer)}
     if(openId===key)detail.innerHTML=customerDetailHTML(customer);
   }catch(error){if(openId===key)detail.innerHTML=`<span class="s-bad">${esc(error.message||"Unable to load customer details")}</span>`}
 }

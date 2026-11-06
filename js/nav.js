@@ -116,6 +116,7 @@ function renderNavigation(page,unreadCount=0){
   $("#nav").innerHTML=`<header class="nav"><a class="icon-btn" title="Notifications" aria-label="Notifications" href="${notifyHref}" ${routeClick("notify")}>&#9993;<span class="dot ${unread===0?"hidden":""}">${unread}</span></a><nav class="links">${links}</nav><a class="profile" href="${profileHref}" ${routeClick("profile")}><span class="avatar">SW</span><span class="n">Profile</span></a></header>`;
 }
 async function refreshUnreadNotificationCount(){
+  if(document.visibilityState!=="visible")return;
   if(notificationRefreshInProgress)return;
   notificationRefreshInProgress=true;
   try{
@@ -133,5 +134,10 @@ async function mountNav(page){
 	renderNavigation(page);
 	await refreshUnreadNotificationCount();
   if(window.__notificationPollTimer)clearInterval(window.__notificationPollTimer);
-  window.__notificationPollTimer=setInterval(refreshUnreadNotificationCount,2000);
+  if(window.__notificationVisibilityHandler)document.removeEventListener("visibilitychange",window.__notificationVisibilityHandler);
+  window.__notificationVisibilityHandler=()=>{
+    if(document.visibilityState==="visible")refreshUnreadNotificationCount();
+  };
+  document.addEventListener("visibilitychange",window.__notificationVisibilityHandler);
+  window.__notificationPollTimer=setInterval(refreshUnreadNotificationCount,30000);
 }
