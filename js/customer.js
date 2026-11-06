@@ -9,7 +9,7 @@ let saCustomers=[];
 let bankFilter={q:"",salary_min:"",salary_max:""};
 
 async function customerPage(){
-  saCustomers=await api.customerRecords();
+  saCustomers=await api.customerRecords(false, false, true);
   return `<div class="customer-page-head"><h1>Customer</h1><button class="add" style="width:44px;height:36px" title="Add bank customers" aria-label="Add bank customers" onclick="custForm()">+</button></div>
     <button class="btn customer-filter-toggle" aria-expanded="${customerFiltersVisible}" onclick="toggleCustomerFilters()">Filter</button>
     <div class="customer-filter-panel" id="customer-filter-panel" ${customerFiltersVisible?"":"hidden"}></div>

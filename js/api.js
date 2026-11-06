@@ -83,8 +83,13 @@ const api={
     const result=await requestBackend(`/insurance/insurance-info?${params}`);
     return result.data?.[0]||null;
   },
-  async customerRecords(summary=false){
-    const query=summary?"?summary=true":"";
+  async customerRecords(summary=false, apSummary=false, customerList=false){
+    const params=new URLSearchParams();
+    if (summary) params.set("summary", true);
+    if (apSummary) params.set("apSummary", true);
+    if (customerList) params.set("customerList", true);
+    const query=params.toString()?`?${params}`:"";
+    console.log(query)
     const result=await requestBackend(`/customer/customer-info${query}`);
     return result.data||[];
   },
@@ -96,7 +101,7 @@ const api={
     const userID=store.get("user_id");
     const [result,customerList]=await Promise.all([
       requestBackend(`/appointments${userID?`?user_id=${encodeURIComponent(userID)}`:""}`),
-      this.customerRecords()
+      this.customerRecords(false, true)
     ]);
     return {
       appointments:(result.data||[]).map(appointment=>({
