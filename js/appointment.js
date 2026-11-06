@@ -32,15 +32,25 @@ async function appointmentPage(){
 }
 async function apptForm(id,day){
   if(!id&&day&&day<todayKey()){showToast("Appointments cannot be created on past dates.");return}
-  const a=id?appointments.find(x=>x.id===id):null;
-  ap=a?jc(a):{id:null,customer_id:customers[0]?.customer_id||"",customer_name:customers[0]?.customer_name||"",sell_case_id:null,user_id:Number(store.get("user_id")),appointment_date:day+"T09:00",location:"",packages:[],reports:[]};
-  if(a){
-    try{
-      const related=(await api.reports(false,a.id,store.get("user_id"))).find(item=>Number(item.appointment_id)===Number(a.id));
+  try{
+    const userID=store.get("user_id");
+    const [customerOptions,packageOptions,record,relatedReports]=await Promise.all([
+      api.customerRecords(false,true),
+      api.appointmentPackageOptions(),
+      id?api.appointmentRecord(id,userID):Promise.resolve(null),
+      id?api.reports(false,id,userID):Promise.resolve([])
+    ]);
+    customers=customerOptions;
+    packageNames=packageOptions;
+    const a=record?{...record,id:record.appointment_id,reports:[]}:null;
+    if(id&&!a)throw new Error("Appointment not found");
+    ap=a?jc(a):{id:null,customer_id:customers[0]?.customer_id||"",customer_name:customers[0]?.customer_name||"",sell_case_id:null,user_id:Number(userID),appointment_date:day+"T09:00",location:"",packages:[],reports:[]};
+    if(a){
+      const related=relatedReports.find(item=>Number(item.appointment_id)===Number(a.id));
       ap.reports=(related?.reports||[]).map(report=>({...report,date:report.create_timestamp,report_note:report.content}));
-    }catch(error){showToast(error.message||"Unable to load appointment reports");return}
-  }
-  apSaved=JSON.stringify(ap);drawAppt();$("#overlay").classList.add("show");
+    }
+    apSaved=JSON.stringify(ap);drawAppt();$("#overlay").classList.add("show");
+  }catch(error){showToast(error.message||"Unable to load appointment details")}
 }
 function drawAppt(){
   $("#modal").className="card modal wide";

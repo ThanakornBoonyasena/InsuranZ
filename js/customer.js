@@ -6,10 +6,11 @@ let customerFilterRules=[];
 let customerFiltersVisible=false;
 let customerGenderMenu=null;
 let saCustomers=[];
+let customerQuerySequence=0;
+let customerQueryTimer=null;
 let bankFilter={q:"",salary_min:"",salary_max:""};
 
 async function customerPage(){
-  saCustomers=await api.customerRecords();
   return `<div class="customer-page-head"><h1>Customer</h1><button class="add" style="width:44px;height:36px" title="Add bank customers" aria-label="Add bank customers" onclick="custForm()">+</button></div>
     <button class="btn customer-filter-toggle" aria-expanded="${customerFiltersVisible}" onclick="toggleCustomerFilters()">Filter</button>
     <div class="customer-filter-panel" id="customer-filter-panel" ${customerFiltersVisible?"":"hidden"}></div>
@@ -38,7 +39,7 @@ function customerFilterValueControl(rule,index){
   if(rule.field==="Sex")return customerGenderDropdown(rule,index,customerSexOptions);
   if(rule.field==="Health")return customerGenderDropdown(rule,index,customerHealthOptions);
   const numeric=rule.field==="Age"||rule.field==="Yearly salary";
-  return `<input aria-label="Filter value" ${numeric?'type="number" min="0" step="'+(rule.field==="Age"?"1":"any")+'" inputmode="decimal"':'type="text"'} placeholder="${numeric?(rule.field==="Yearly salary"?"Annual amount":"Number"):"Text"}" value="${esc(rule.value)}" oninput="customerFilterRules[${index}].value=this.value;renderCustomerList()">`;
+  return `<input aria-label="Filter value" ${numeric?'type="number" min="0" step="'+(rule.field==="Age"?"1":"any")+'" inputmode="decimal"':'type="text"'} placeholder="${numeric?(rule.field==="Yearly salary"?"Annual amount":"Number"):"Text"}" value="${esc(rule.value)}" oninput="customerFilterRules[${index}].value=this.value;scheduleCustomerListRender()">`;
 }
 function drawCustomerFilterPanel(){
   const panel=document.getElementById("customer-filter-panel");
@@ -85,39 +86,34 @@ function selectCustomerGender(index,optionIndex){
 }
 function removeCustomerFilter(index){customerFilterRules.splice(index,1);drawCustomerFilterPanel();renderCustomerList()}
 function clearCustomerFilters(){customerFilterRules=[];drawCustomerFilterPanel();renderCustomerList()}
-function customerMatchesFilter(customer,rule){
-  const value=String(rule.value??"");
-  if(rule.field==="Health"){
-    const health=String(customer.health_info||"").trim().toLocaleLowerCase();
-    if(rule.operator==="is empty")return !health;
-    if(rule.operator==="is not empty")return Boolean(health);
-    if(!value.trim())return true;
-    const selected=value.trim().toLocaleLowerCase();
-    return rule.operator==="is not"?health!==selected:health===selected;
-  }
-  if(!value.trim())return true;
-  if(rule.field==="Name"){
-    const name=String(customer.customer_name||"").toLocaleLowerCase(),query=value.trim().toLocaleLowerCase();
-    return rule.operator==="equals"?name===query:rule.operator==="starts with"?name.startsWith(query):name.includes(query);
-  }
-  if(rule.field==="Gender"||rule.field==="Sex"){
-    const gender=String(rule.field==="Gender"?customer.customer_gender:customer.customer_sex||"").toLocaleLowerCase(),selected=value.toLocaleLowerCase();
-    return rule.operator==="is not"?gender!==selected:gender===selected;
-  }
-  const actual=Number(rule.field==="Age"?customer.customer_age:Number(customer.salary_per_month)*12),expected=Number(value);
-  if(!Number.isFinite(actual)||actual<=0||!Number.isFinite(expected))return false;
-  return rule.operator==="greater than"?actual>expected:rule.operator==="less than"?actual<expected:rule.operator==="at least"?actual>=expected:rule.operator==="at most"?actual<=expected:actual===expected;
+function activeCustomerFilters(){
+  return customerFilterRules.filter(rule=>rule.value!==""||rule.operator==="is empty"||rule.operator==="is not empty");
 }
-function renderCustomerList(){
-  const activeRules=customerFilterRules.filter(rule=>rule.value!==""||rule.operator==="is empty"||rule.operator==="is not empty");
-  const matches=saCustomers.filter(customer=>activeRules.every(rule=>customerMatchesFilter(customer,rule)));
+function scheduleCustomerListRender(){
+  clearTimeout(customerQueryTimer);
+  customerQueryTimer=setTimeout(renderCustomerList,300);
+}
+async function renderCustomerList(){
+  clearTimeout(customerQueryTimer);
+  const sequence=++customerQuerySequence;
+  const filters=activeCustomerFilters();
+  const container=document.getElementById("customer-list");
+  if(container)container.innerHTML='<div class="card pad">Loading customers...</div>';
+  try{
+    saCustomers=await api.customerRecords(false,false,true,filters);
+    if(sequence!==customerQuerySequence)return;
+  }catch(error){
+    if(sequence!==customerQuerySequence)return;
+    if(container)container.innerHTML=`<div class="card pad">${esc(error.message||"Unable to load customers")}</div>`;
+    return;
+  }
   openId=null;
-  const list=matches.map(customer=>`<div class="card row customer-card" data-customer-id="${esc(customer.customer_id)}">
+  const list=saCustomers.map(customer=>`<div class="card row customer-card" data-customer-id="${esc(customer.customer_id)}">
     <div class="row-head" style="grid-template-columns:1.5fr 1fr 1fr" onclick="toggleCustomer('${esc(customer.customer_id)}')">
       <div><b>${esc(customer.customer_name)}</b></div><div class="muted">Age ${customer.customer_age??"—"}</div><div class="muted">#${customer.customer_id}</div>
     </div><div class="detail" id="customer-detail-${esc(customer.customer_id)}"></div></div>`).join("");
-  const count=document.getElementById("customer-filter-count");if(count)count.textContent=`${matches.length} of ${saCustomers.length} customers`;
-  const container=document.getElementById("customer-list");if(container)container.innerHTML=list||'<div class="card pad">No customers match these filters.</div>';
+  const count=document.getElementById("customer-filter-count");if(count)count.textContent=`${saCustomers.length} customer${saCustomers.length===1?"":"s"}`;
+  if(container)container.innerHTML=list||'<div class="card pad">No customers match these filters.</div>';
 }
 const customerDetailsCache=new Map();
 function customerDetailHTML(customer){
@@ -197,7 +193,7 @@ async function render(){
   try{
     $("#main").innerHTML=await customerPage();
     drawCustomerFilterPanel();
-    renderCustomerList();
+    await renderCustomerList();
   }catch(error){
     $("#main").innerHTML=`<h1>Customer</h1><div class="card pad">${esc(error.message||"Unable to load customers from sa")}</div>`;
   }
