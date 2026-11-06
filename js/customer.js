@@ -177,6 +177,7 @@ async function sendQuery(){
     const results=await api.searchBankCustomers(bankFilter);
     const saved=results.length?await api.addCustomers(results):{count:0,updated_count:0};
     try{await api.notifyBankCustomerSearch(results.length)}catch(error){showToast(error.message||"Customers were saved, but the broker notification failed")}
+    if(saved.count||saved.updated_count)showToast(`${saved.count||0} customer${saved.count===1?"":"s"} added; ${saved.updated_count||0} updated.`,"success");
     drawBankMatches(results,saved.count||0,saved.updated_count||0);
   }catch(error){
     $("#modal").innerHTML=`<h1>Bank search failed</h1><p class="error">${esc(error.message||"Unable to search bank customers")}</p><div class="actions"><button class="btn" onclick="custForm()">Back</button><button class="btn" onclick="closeModal()">Cancel</button></div>`;
