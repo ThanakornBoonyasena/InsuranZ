@@ -283,6 +283,11 @@ const api={
       time:n.create_timestamp??n.created_at??n.time??""
     }));
   },
+  async unreadNotificationCount(){
+    const params=new URLSearchParams({user_id:String(store.get("user_id")||""),role:String(store.get("role")||""),unread_count:"true"});
+    const result=await requestBackend(`/notification?${params.toString()}`);
+    return Number(result.unread_count)||0;
+  },
   async markNotificationRead(id){
     const params=new URLSearchParams({user_id:String(store.get("user_id")||""),role:String(store.get("role")||"")});
     return requestBackend(`/notification/${encodeURIComponent(id)}/read?${params.toString()}`,{method:"PATCH"});

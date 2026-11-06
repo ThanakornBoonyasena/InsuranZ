@@ -93,13 +93,17 @@ function showToast(message){
 function publishNotifications(list){
   window.__notificationSnapshot=list;
   const unread=list.filter(item=>!item.is_read).length;
-  const badge=$(".nav .dot");
-  if(badge){badge.textContent=String(unread);badge.classList.toggle("hidden",unread===0)}
+  updateNotificationBadge(unread);
   window.dispatchEvent(new CustomEvent("notification:list",{detail:list}));
   if(window.__workspaceShell){
     const frame=$("#workspace-frame");
     if(frame?.dataset.page==="notify")frame.contentWindow?.postMessage({type:"notification-list",data:list},location.origin);
   }
+}
+function updateNotificationBadge(unreadCount){
+  const unread=Number(unreadCount)||0;
+  const badge=$(".nav .dot");
+  if(badge){badge.textContent=String(unread);badge.classList.toggle("hidden",unread===0)}
 }
 let notificationRefreshInProgress=false;
 function renderNavigation(page,unreadCount=0){
@@ -110,12 +114,12 @@ function renderNavigation(page,unreadCount=0){
   const routeClick=target=>window.__workspaceShell?`onclick="return navigateContentPage('${target}')"`:"";
   $("#nav").innerHTML=`<header class="nav"><a class="icon-btn" title="Notifications" aria-label="Notifications" href="${notifyHref}" ${routeClick("notify")}>&#9993;<span class="dot ${unread===0?"hidden":""}">${unread}</span></a><nav class="links">${links}</nav><a class="profile" href="${profileHref}" ${routeClick("profile")}><span class="avatar">SW</span><span class="n">Profile</span></a></header>`;
 }
-async function refreshNotifications(){
+async function refreshUnreadNotificationCount(){
   if(notificationRefreshInProgress)return;
   notificationRefreshInProgress=true;
   try{
-    const list=await api.notifications();
-    publishNotifications(list);
+    const unreadCount=await api.unreadNotificationCount();
+    updateNotificationBadge(unreadCount);
   }catch(error){
     // Notification request failures are intentionally silent.
   }finally{
@@ -126,12 +130,7 @@ async function mountNav(page){
   if(window.self!==window.top)return;
   if(!role){location.href="login.html";return}
 	renderNavigation(page);
-	try{
-	  const notifications=await api.notifications();
-	  publishNotifications(notifications);
-	}catch(error){
-	  // Notification request failures are intentionally silent.
-	}
+	await refreshUnreadNotificationCount();
   if(window.__notificationPollTimer)clearInterval(window.__notificationPollTimer);
-  window.__notificationPollTimer=setInterval(refreshNotifications,2000);
+  window.__notificationPollTimer=setInterval(refreshUnreadNotificationCount,2000);
 }
