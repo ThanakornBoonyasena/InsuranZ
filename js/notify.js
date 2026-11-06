@@ -41,6 +41,14 @@ window.addEventListener("message",event=>{
     renderNotifications(event.data.data||[]);
   }
 });
-if(window.self!==window.top){
-  api.notifications().then(renderNotifications).catch(()=>{});
+async function refreshNotificationList(){
+  try{
+    const list=await api.notifications();
+    publishNotifications(list);
+  }catch(error){
+    // Keep notification list refresh failures silent.
+  }
 }
+refreshNotificationList();
+if(window.__notificationListPollTimer)clearInterval(window.__notificationListPollTimer);
+window.__notificationListPollTimer=setInterval(refreshNotificationList,30000);
