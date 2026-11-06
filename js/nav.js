@@ -82,13 +82,14 @@ function confirmDialog(message,{title="Please confirm",confirmText="Continue",ca
 function signOut(){store.del("role");store.del("user_id");store.del("user_name");if(window.self!==window.top)window.top.location.href="login.html";else location.href="login.html"}
 const LINKS={company:[["insurance","Insurance"],["commission","Commission"]],broker:[["sign-contract","Sign Contract"],["dashboard","Dashboard"],["customer","Customer"],["report","Report"],["appointment","Appointment"]]};
 let toastTimer;
-function showToast(message){
+function showToast(message,type="error"){
   let toast=$("#app-toast");
   if(!toast){toast=document.createElement("div");toast.id="app-toast";toast.className="app-toast";toast.setAttribute("role","status");document.body.appendChild(toast)}
   toast.textContent=message||"Something went wrong";
+  toast.classList.toggle("success",type==="success");
   toast.classList.add("visible");
   clearTimeout(toastTimer);
-  toastTimer=setTimeout(()=>toast.classList.remove("visible"),4000);
+  toastTimer=setTimeout(()=>toast.classList.remove("visible"),3000);
 }
 function publishNotifications(list){
   window.__notificationSnapshot=list;
@@ -101,7 +102,6 @@ function publishNotifications(list){
     if(frame?.dataset.page==="notify")frame.contentWindow?.postMessage({type:"notification-list",data:list},location.origin);
   }
 }
-let notificationQueryFailed=false;
 let notificationRefreshInProgress=false;
 function renderNavigation(page,unreadCount=0){
   const links=(LINKS[role]||[]).map(([h,t])=>`<a href="${window.__workspaceShell?`${h}.html?embedded=1`:`workspace.html?page=${h}`}" data-page="${h}" class="${page===h?"active":""}" ${window.__workspaceShell?`onclick="return navigateContentPage('${h}')"`:""}>${t}</a>`).join("");
@@ -116,12 +116,9 @@ async function refreshNotifications(){
   notificationRefreshInProgress=true;
   try{
     const list=await api.notifications();
-    notificationQueryFailed=false;
     publishNotifications(list);
   }catch(error){
-    if(!notificationQueryFailed)showToast(error.message||"Unable to load notifications");
-    notificationQueryFailed=true;
-    window.dispatchEvent(new CustomEvent("notification:error",{detail:error}));
+    // Notification request failures are intentionally silent.
   }finally{
     notificationRefreshInProgress=false;
   }
@@ -132,12 +129,9 @@ async function mountNav(page){
 	renderNavigation(page);
 	try{
 	  const notifications=await api.notifications();
-	  notificationQueryFailed=false;
 	  publishNotifications(notifications);
 	}catch(error){
-	  notificationQueryFailed=true;
-	  showToast(error.message||"Unable to load notifications");
-	  window.dispatchEvent(new CustomEvent("notification:error",{detail:error}));
+	  // Notification request failures are intentionally silent.
 	}
   if(window.__notificationPollTimer)clearInterval(window.__notificationPollTimer);
   window.__notificationPollTimer=setInterval(refreshNotifications,2000);

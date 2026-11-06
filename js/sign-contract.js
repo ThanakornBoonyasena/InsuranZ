@@ -177,8 +177,9 @@ async function discardContract(){
     await api.discardContract(cf.insId);
     closeModal();
     await render();
+    showToast("Contract discarded.","success");
   }catch(error){
-    alert(error?.message||"Unable to discard the contract");
+    showToast(error?.message||"Unable to discard the contract");
   }
 }
 
@@ -228,8 +229,9 @@ async function signContract(){
     }
     closeModal();
     await render();
+    showToast("Contract saved successfully.","success");
   }catch(error){
-    alert(error?.message||"Unable to save the contract");
+    showToast(error?.message||"Unable to save the contract");
   }
 }
 

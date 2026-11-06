@@ -116,9 +116,10 @@ async function saveRep(){
     const savedAppointment=JSON.parse(apSaved);
     savedAppointment.reports=ap.reports;
     apSaved=JSON.stringify(savedAppointment);drawAppt();
+    showToast("Report saved.","success");
   }catch(error){
     button.disabled=false;button.textContent="Save report";
-    alert(error.message||"Unable to save report");
+    showToast(error.message||"Unable to save report");
   }
 }
 async function saveAppt(){
@@ -132,21 +133,23 @@ async function saveAppt(){
     }
   }
   if(ap.id===null&&ap.appointment_date.slice(0,10)<todayKey()){
-    alert("Appointments cannot be scheduled before today's date.");
+    showToast("Appointments cannot be scheduled before today's date.");
     return;
   }
   if(!await confirmDialog(ap.id===null?"Create this appointment?":"Save appointment changes?",{title:ap.id===null?"Create appointment":"Save appointment",confirmText:ap.id===null?"Create":"Save"}))return;
+  const creating=ap.id===null;
   try{
     const result=await api.saveAppointment(ap);
     if(ap.id===null)ap.id=result.appointment_id;
     closeModal();
     await render();
-  }catch(error){alert(error.message||"Unable to save appointment")}
+    showToast(creating?"Appointment created.":"Appointment saved.","success");
+  }catch(error){showToast(error.message||"Unable to save appointment")}
 }
 async function abortAppt(){
   if(ap.id===null){closeModal();return}
   if(!await confirmDialog("Abort this appointment? Its reports and discussed packages will also be removed.",{title:"Abort appointment",confirmText:"Abort",danger:true}))return;
-  try{await api.deleteAppointment(ap.id);closeModal();await render()}
+  try{await api.deleteAppointment(ap.id);closeModal();await render();showToast("Appointment aborted.","success")}
   catch(error){showToast(error.message||"Unable to abort appointment")}
 }
 async function render(){

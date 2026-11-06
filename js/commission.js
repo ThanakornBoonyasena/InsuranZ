@@ -39,7 +39,8 @@ async function saveSettings(){
     await api.saveSettings(setCur);setSaved=clone(setCur);
     document.querySelectorAll("#spanel input,#spanel select").forEach(e=>e.classList.remove("mod"));
     $("#sactions").innerHTML="";
-  }catch(error){alert(error.message||"Unable to save commission settings")}
+    showToast("Commission settings saved.","success");
+  }catch(error){showToast(error.message||"Unable to save commission settings")}
 }
 function colFocus(el){el.value=cur.cols[el.dataset.i]}
 function colBlur(el){const v=cur.cols[el.dataset.i];el.value=v?v+"%":""}
@@ -47,7 +48,7 @@ function addCol(){cur.cols.push("");cur.cells.forEach(r=>r.push(""));drawComm()}
 function addRow(){cur.rows.push("");cur.cells.push(cur.cols.map(()=>""));drawComm()}
 function removeCol(index){cur.cols.splice(index,1);cur.cells.forEach(row=>row.splice(index,1));drawComm()}
 function removeRow(index){cur.rows.splice(index,1);cur.cells.splice(index,1);drawComm()}
-async function saveComm(){if(!await confirmDialog("Save commission table changes?",{title:"Save commission table",confirmText:"Save"}))return;try{const t=clone(cur);const stored=await api.saveCommission(t);saved=stored?strT(stored):blank();cur=clone(saved);drawComm()}catch(error){alert(error.message||"Unable to save commission table")}}
+async function saveComm(){if(!await confirmDialog("Save commission table changes?",{title:"Save commission table",confirmText:"Save"}))return;try{const t=clone(cur);const stored=await api.saveCommission(t);saved=stored?strT(stored):blank();cur=clone(saved);drawComm();showToast("Commission table saved.","success")}catch(error){showToast(error.message||"Unable to save commission table")}}
 function clearComm(){cur.cols=cur.cols.map(()=>"");cur.rows=cur.rows.map(()=>"");cur.cells=cur.cells.map(r=>r.map(()=>""));drawComm()}
 function resetComm(){cur=blank();drawComm()}
 async function commissionPage(){
