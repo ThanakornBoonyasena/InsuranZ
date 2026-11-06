@@ -41,6 +41,7 @@ async function setStatus(id,approved){
     insuranceDetailsCache.delete(`all:${id}`);
     openId=null;
     await render();
+    showToast(`Insurance #${id} ${approved?"approved":"denied"}.`,"success");
   }catch(error){
     showInsuranceError(error);
   }
@@ -53,6 +54,7 @@ async function sendInsurance(id){
     insuranceDetailsCache.delete(`all:${id}`);
     openId=null;
     await render();
+    showToast(`Insurance #${id} sent.`,"success");
   }catch(error){showInsuranceError(error)}
 }
 
@@ -77,6 +79,7 @@ async function saveEdit(id){
     openId=null;
     closeModal();
     await render();
+    showToast(`Insurance #${id} updated.`,"success");
   }catch(error){
     showInsuranceError(error);
   }
