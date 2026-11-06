@@ -110,19 +110,25 @@ const api={
   },
   async appointmentData(){
     const userID=store.get("user_id");
-    const [result,customerList]=await Promise.all([
-      requestBackend(`/appointments${userID?`?user_id=${encodeURIComponent(userID)}`:""}`),
-      this.customerRecords(false, true)
-    ]);
+    const result=await requestBackend(`/appointments${userID?`?user_id=${encodeURIComponent(userID)}`:""}`);
     return {
       appointments:(result.data||[]).map(appointment=>({
         ...appointment,
         id:appointment.appointment_id,
         reports:[]
       })),
-      customers:customerList,
-      packages:result.package_options||[]
+      customers:[],
+      packages:[]
     };
+  },
+  async appointmentRecord(id,userID=store.get("user_id")){
+    const query=new URLSearchParams({appointment_id:String(id),user_id:String(userID||"")});
+    const result=await requestBackend(`/appointments?${query}`);
+    return result.data||null;
+  },
+  async appointmentPackageOptions(){
+    const result=await requestBackend("/appointments?package_options=true");
+    return result.data||[];
   },
   async saveAppointment(appointment){
     const payload={
