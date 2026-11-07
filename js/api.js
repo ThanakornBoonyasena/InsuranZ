@@ -200,7 +200,7 @@ const api={
   async denyInsurance(id){return requestBackend("/insurance/deny",{method:"POST",body:JSON.stringify({insurance_id:id})})},
   async sendInsurance(id){return requestBackend("/insurance/send",{method:"POST",body:JSON.stringify({insurance_id:Number(id)})})},
   async editInsurance(id,detail){
-    return requestBackend("/insurance/edit",{method:"POST",body:JSON.stringify({insurance_id:id,additional_detail:detail})});
+    return requestBackend("/insurance/edit",{method:"PATCH",body:JSON.stringify({insurance_id:id,additional_detail:detail})});
   },
   async submitSignedContract(contract){
     return requestBackend("/insurance/sign-contract",{method:"POST",body:JSON.stringify(contract)});
@@ -226,8 +226,11 @@ const api={
     }
     return {cols,rows,cells};
   },
-  async saveCommission(t){
-    const data=[];
+  async saveCommission(t,previous){
+    const upsert=[];
+    const delete_rows=[];
+    const delete_columns=[];
+    const delete_cells=[];
     const points=new Set(),percents=new Set();
     t.rows.forEach((value,index)=>{
       if(value===""||!Number.isInteger(Number(value))||Number(value)<0)return;
@@ -250,9 +253,42 @@ const api={
       if(!Number.isInteger(point)||point<0)throw new Error("Point thresholds must be non-negative whole numbers");
       if(!Number.isFinite(percent)||percent<0)throw new Error("Percent thresholds must be non-negative numbers");
       if(!Number.isInteger(commission))throw new Error("Commission values must be whole numbers");
-      data.push({point:point,percentage:percent,commission:commission});
+      upsert.push({point:point,percentage:percent,commission:commission});
     }));
-    const result=await requestBackend("/commission/table",{method:"PUT",body:JSON.stringify({data})});
+    const hasSavedCells=(previous?.cells||[]).some(row=>row.some(value=>value!==""));
+    if(upsert.length===0&&hasSavedCells){
+      await requestBackend("/commission/table",{method:"PUT",body:JSON.stringify({data:[]})});
+      return null;
+    }
+    const oldRows=new Set((previous?.rows||[]).filter(value=>value!=="").map(Number));
+    const oldCols=new Set((previous?.cols||[]).filter(value=>value!=="").map(Number));
+    const newRows=new Set(t.rows.filter(value=>value!=="").map(Number));
+    const newCols=new Set(t.cols.filter(value=>value!=="").map(Number));
+    for(const point of oldRows)if(!newRows.has(point))delete_rows.push(point);
+    for(const percentage of oldCols)if(!newCols.has(percentage))delete_columns.push(percentage);
+
+    const oldCells=new Map();
+    (previous?.cells||[]).forEach((row,i)=>row.forEach((value,j)=>{
+      if(value==="")return;
+      const point=Number(previous.rows[i]),percentage=Number(previous.cols[j]);
+      if(Number.isInteger(point)&&Number.isFinite(percentage))oldCells.set(`${point}|${percentage}`,{point,percentage,commission:Number(value)});
+    }));
+    const targetCells=new Map(upsert.map(cell=>[`${cell.point}|${cell.percentage}`,cell]));
+    const targetCellKeys=new Set(targetCells.keys());
+    const changedCells=[];
+    for(const [key,cell] of targetCells){
+      const old=oldCells.get(key);
+      if(!old||old.commission!==cell.commission)continue;
+      targetCells.delete(key);
+    }
+    for(const cell of targetCells.values())changedCells.push(cell);
+    for(const [key,cell] of oldCells){
+      if(targetCellKeys.has(key))continue;
+      if(delete_rows.includes(cell.point)||delete_columns.includes(cell.percentage))continue;
+      if(!t.rows.some(value=>value!==""&&Number(value)===cell.point)||!t.cols.some(value=>value!==""&&Number(value)===cell.percentage))continue;
+      delete_cells.push({point:cell.point,percentage:cell.percentage});
+    }
+    const result=await requestBackend("/commission/table",{method:"PATCH",body:JSON.stringify({upsert:changedCells,delete_rows,delete_columns,delete_cells})});
     const records=result.data||[];
     if(records.length===0)return null;
     const cols=[...new Set(records.map(cell=>Number(cell.percentage)))].sort((a,b)=>a-b).map(String);
@@ -260,7 +296,10 @@ const api={
     const cells=Array.from({length:rows.length},()=>Array(cols.length).fill(""));
     const colIndex=new Map(cols.map((value,index)=>[Number(value),index]));
     const rowIndex=new Map(rows.map((value,index)=>[Number(value),index]));
-    for(const record of records)cells[rowIndex.get(Number(record.point))][colIndex.get(Number(record.percentage))]=String(record.commission);
+    for(const record of records){
+      const row=rowIndex.get(Number(record.point)),col=colIndex.get(Number(record.percentage));
+      if(row!==undefined&&col!==undefined)cells[row][col]=String(record.commission);
+    }
     return {cols,rows,cells};
   },
   async commissionSettings(){
@@ -274,8 +313,12 @@ const api={
     const result=await requestBackend(`/dashboard/summary?user_id=${encodeURIComponent(userID)}`);
     return result.data;
   },
-  async saveSettings(s){
-    return requestBackend("/commission/settings",{method:"PUT",body:JSON.stringify({target:String(s.target),period:String(s.period)})});
+  async saveSettings(s,previous){
+    const patch={};
+    if(s.target!==previous?.target)patch.target=String(s.target);
+    if(s.period!==previous?.period)patch.period=String(s.period);
+    if(Object.keys(patch).length===0)return {data:previous||s};
+    return requestBackend("/commission/settings",{method:"PATCH",body:JSON.stringify(patch)});
   },
   async sellingCases(userID){
     const query=userID?`?user_id=${encodeURIComponent(userID)}`:"";
