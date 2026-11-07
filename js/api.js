@@ -231,15 +231,19 @@ const api={
   },
   async saveCommission(t){
     const data=[];
+    const maxCommissionInteger=2147483647n;
     const points=new Set(),percents=new Set();
     t.rows.forEach((value,index)=>{
-      if(value===""||!Number.isInteger(Number(value))||Number(value)<0)return;
+      if(value==="")return;
+      if(!/^\d+$/.test(value))throw new Error("Point thresholds must be non-negative whole numbers.");
+      if(BigInt(value)>maxCommissionInteger)throw new Error("Point thresholds cannot exceed 2,147,483,647.");
       const point=Number(value);
       if(points.has(point))throw new Error(`Duplicate point threshold: ${point}`);
       points.add(point);
     });
     t.cols.forEach(value=>{
-      if(value===""||!Number.isFinite(Number(value))||Number(value)<0)return;
+      if(value==="")return;
+      if(!Number.isFinite(Number(value))||Number(value)<0)throw new Error("Percent thresholds must be non-negative numbers.");
       const percent=Number(value);
       if(percents.has(percent))throw new Error(`Duplicate percent threshold: ${percent}`);
       percents.add(percent);
@@ -250,9 +254,11 @@ const api={
       const point=Number(t.rows[i]);
       const percent=Number(t.cols[j]);
       const commission=Number(value);
-      if(!Number.isInteger(point)||point<0)throw new Error("Point thresholds must be non-negative whole numbers");
+      if(!/^\d+$/.test(t.rows[i]))throw new Error("Point thresholds must be non-negative whole numbers.");
+      if(BigInt(t.rows[i])>maxCommissionInteger)throw new Error("Point thresholds cannot exceed 2,147,483,647.");
       if(!Number.isFinite(percent)||percent<0)throw new Error("Percent thresholds must be non-negative numbers");
-      if(!Number.isInteger(commission))throw new Error("Commission values must be whole numbers");
+      if(!/^\d+$/.test(value))throw new Error("Commission values must be non-negative whole numbers.");
+      if(BigInt(value)>maxCommissionInteger)throw new Error("Commission values cannot exceed 2,147,483,647.");
       data.push({point:point,percentage:percent,commission:commission});
     }));
     const result=await requestBackend("/commission/table",{method:"PUT",body:JSON.stringify({data})});
