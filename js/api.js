@@ -18,6 +18,7 @@ async function requestBank(path){
   return payload;
 }
 const copy=o=>JSON.parse(JSON.stringify(o));
+const realString=value=>{const number=Number(value);return Number.isFinite(number)?new Intl.NumberFormat("en-US",{useGrouping:false,maximumSignificantDigits:7}).format(number):String(value)};
 const DEFAULTS = {
   customers: [
     {customer_id:1,customer_name:"Somchai Prasert",telephone_number:"000-000-0001",customer_email:"somchai@example.com",customer_address:"12 Sukhumvit Road, Bangkok",customer_gender:"Male",customer_sex:"Male",salary_per_month:45000,job_description:"Software engineer",customer_dob:"1984-04-12T00:00:00",query_timestamp:"2026-01-12T09:30",health_info:"Non-smoker, mild hypertension"},
@@ -225,7 +226,7 @@ const api={
     for(const record of records){
       const row=rowIndex.get(Number(record.point));
       const col=colIndex.get(Number(record.percentage));
-      if(row!==undefined&&col!==undefined)cells[row][col]=String(record.commission);
+      if(row!==undefined&&col!==undefined)cells[row][col]=realString(record.commission);
     }
     return {cols,rows,cells};
   },
@@ -235,8 +236,8 @@ const api={
     const delete_rows=[];
     const delete_columns=[];
     const delete_cells=[];
-    const data=[];
     const maxCommissionInteger=2147483647n;
+    const maxReal=3.402823466e38;
     const points=new Set(),percents=new Set();
     t.rows.forEach((value,index)=>{
       if(value==="")return;
@@ -248,7 +249,7 @@ const api={
     });
     t.cols.forEach(value=>{
       if(value==="")return;
-      if(!Number.isFinite(Number(value))||Number(value)<0)throw new Error("Percent thresholds must be non-negative numbers.");
+      if(!/^(?:\d+(?:\.\d*)?|\.\d+)$/.test(value)||!Number.isFinite(Number(value))||Number(value)>maxReal)throw new Error("Percent thresholds must be valid non-negative numbers.");
       const percent=Number(value);
       if(percents.has(percent))throw new Error(`Duplicate percent threshold: ${percent}`);
       percents.add(percent);
@@ -261,12 +262,9 @@ const api={
       const commission=Number(value);
       if(!/^\d+$/.test(t.rows[i]))throw new Error("Point thresholds must be non-negative whole numbers.");
       if(BigInt(t.rows[i])>maxCommissionInteger)throw new Error("Point thresholds cannot exceed 2,147,483,647.");
-      if(!Number.isFinite(percent)||percent<0)throw new Error("Percent thresholds must be non-negative numbers");
-      if(!Number.isInteger(commission))throw new Error("Commission values must be whole numbers");
+      if(!Number.isFinite(percent)||percent<0||percent>maxReal)throw new Error("Percent thresholds must be valid non-negative numbers");
+      if(!/^(?:\d+(?:\.\d*)?|\.\d+)$/.test(value)||!Number.isFinite(commission)||commission<0||commission>maxReal)throw new Error("Commission values must be valid non-negative numbers.");
       upsert.push({point:point,percentage:percent,commission:commission});
-      if(!/^\d+$/.test(value))throw new Error("Commission values must be non-negative whole numbers.");
-      if(BigInt(value)>maxCommissionInteger)throw new Error("Commission values cannot exceed 2,147,483,647.");
-      data.push({point:point,percentage:percent,commission:commission});
     }));
     const hasSavedCells=(previous?.cells||[]).some(row=>row.some(value=>value!==""));
     if(upsert.length===0&&hasSavedCells){
@@ -311,7 +309,7 @@ const api={
     const rowIndex=new Map(rows.map((value,index)=>[Number(value),index]));
     for(const record of records){
       const row=rowIndex.get(Number(record.point)),col=colIndex.get(Number(record.percentage));
-      if(row!==undefined&&col!==undefined)cells[row][col]=String(record.commission);
+      if(row!==undefined&&col!==undefined)cells[row][col]=realString(record.commission);
     }
     return {cols,rows,cells};
   },
