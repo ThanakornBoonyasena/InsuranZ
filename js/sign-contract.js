@@ -38,11 +38,19 @@ async function signContractPage(){
 async function openContract(insId){
   try{
     const userID=currentBrokerUserID();
-    const [customers,packages,i,contracts]=await Promise.all([api.customerRecords(),api.packages(),insId?api.insuranceRecord(insId,userID):Promise.resolve(null),api.contracts()]);
-    CC={customers,packages:i?[i.package]:packages};
+    const [customers,packages,i,contracts]=await Promise.all([
+      insId?Promise.resolve([]):api.customerRecords(false,false,false,[],true),
+      insId?Promise.resolve(null):api.packages(),
+      insId?api.insuranceRecord(insId,userID,"sign_contract"):Promise.resolve(null),
+      api.contracts()
+    ]);
+    if(insId&&!i)throw new Error("Edited insurance record not found");
+    CC={customers,packages:i?[i.package]:packages,customer:null};
     let cid=i&&(i.customer_id??i.customer?.customer_id);
-    if((cid===undefined||cid===null||cid==="")&&i)cid=customers.find(c=>c.customer_name===(i.customer_name||i.customer?.customer_name))?.customer_id;
     if(i){
+      if(!cid)throw new Error("Insurance customer not found");
+      CC.customer=await api.customerRecord(cid);
+      if(!CC.customer)throw new Error("Customer not found");
       // Existing contract: read-only summary + signature. Reads the contract data from the insurance record.
       const previous=contracts.find(contract=>Number(contract.insurance_id)===Number(insId))||{};
       const ex={...previous,...i.contract,...i};
@@ -102,7 +110,7 @@ function formHTML(){
     </div>`}).join("")}
   </div>
   <p class="s-bad" id="cerr"></p>
-  <div class="actions"><button class="btn" onclick="closeModal()">Cancel</button><button class="btn pri" onclick="contractNext()">Next</button></div>`;
+  <div class="actions"><button class="btn" onclick="closeModal()">Cancel</button><button class="btn pri" id="contract-next" onclick="contractNext()">Next</button></div>`;
 }
 
 function togglePkg(id,on){
@@ -110,7 +118,7 @@ function togglePkg(id,on){
   drawContract();
 }
 
-function contractNext(){
+async function contractNext(){
   const miss=[];
   if(!String(cf.customerId??"").trim())miss.push("customer");
   for(const k of ["name","age","job","address","relation"])if(!String(cf.g[k]).trim())miss.push("guarantor "+k);
@@ -122,7 +130,19 @@ function contractNext(){
     error.scrollIntoView({block:"nearest",behavior:"smooth"});
     return;
   }
-  cf.step=2;cf.signed=false;drawContract();
+  const next=$("#contract-next");
+  next.disabled=true;
+  next.textContent="Loading customer...";
+  try{
+    CC.customer=await api.customerRecord(cf.customerId);
+    if(!CC.customer)throw new Error("Customer not found");
+    cf.step=2;cf.signed=false;drawContract();
+  }catch(error){
+    next.disabled=false;
+    next.textContent="Next";
+    const message=$("#cerr");
+    message.textContent=error?.message||"Unable to load customer details";
+  }
 }
 
 function renderPackageCostRows(calc){
@@ -140,7 +160,7 @@ function renderPackageCostRows(calc){
 }
 
 function summaryHTML(){
-  const c=CC.customers.find(x=>String(x.customer_id)===String(cf.customerId))||{};
+  const c=CC.customer||{};
   const calc=calcContract(CC.packages.filter(p=>cf.pkgIds.includes(p.package_id)),cf.claims);
   const kv=(k,v,wide)=>`<div${wide?' style="grid-column:1/-1"':""}><b>${esc(k)}</b><span>${esc(v||"—")}</span></div>`;
   const jobs=Array.isArray(c.jobs)?c.jobs:[];

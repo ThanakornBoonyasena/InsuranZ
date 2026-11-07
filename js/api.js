@@ -64,6 +64,26 @@ for(const customer of db.customers||[]){
 const persist=()=>{try{localStorage.setItem(KEY,JSON.stringify(db))}catch{}};
 function reloadDb(){try{const d=JSON.parse(localStorage.getItem(KEY));if(d)db=d}catch{}}
 persist();
+let appointmentCustomerOptionsPromise=null;
+let appointmentPackageOptionsPromise=null;
+function loadAppointmentCustomerOptions(){
+  if(!appointmentCustomerOptionsPromise){
+    appointmentCustomerOptionsPromise=api.customerRecords(false,true).catch(error=>{
+      appointmentCustomerOptionsPromise=null;
+      throw error;
+    });
+  }
+  return appointmentCustomerOptionsPromise;
+}
+function loadAppointmentPackageOptions(){
+  if(!appointmentPackageOptionsPromise){
+    appointmentPackageOptionsPromise=requestBackend("/appointments?package_options=true").then(result=>result.data||[]).catch(error=>{
+      appointmentPackageOptionsPromise=null;
+      throw error;
+    });
+  }
+  return appointmentPackageOptionsPromise;
+}
 const api={
   async insuranceRecords(userID,summary=false){
     const params=new URLSearchParams();
@@ -77,17 +97,20 @@ const api={
       return {...record,status:statusMap[String(condition).trim().toUpperCase()]||condition||"Pending"};
     });
   },
-  async insuranceRecord(id,userID){
+  async insuranceRecord(id,userID,view){
     const params=new URLSearchParams({insurance_id:String(id)});
     if(userID)params.set("user_id",userID);
+    if(view)params.set("view",view);
     const result=await requestBackend(`/insurance/insurance-info?${params}`);
     return result.data?.[0]||null;
   },
-  async customerRecords(summary=false, forAppointmentPage=false, forCustomerPage=false){
+  async customerRecords(summary=false, forAppointmentPage=false, forCustomerPage=false, filters=[], forContractPage=false){
     const params=new URLSearchParams();
     if (summary) params.set("summary", true);
     if (forAppointmentPage) params.set("forAppointmentPage", true);
     if (forCustomerPage) params.set("forCustomerPage", true);
+    if (forCustomerPage && filters.length) params.set("filters", JSON.stringify(filters));
+    if (forContractPage) params.set("forContractPage", true);
     const query=params.toString()?`?${params}`:"";
     console.log(query)
     const result=await requestBackend(`/customer/customer-info${query}`);
@@ -107,18 +130,30 @@ const api={
     const result=await requestBackend(`/customer/customer-info?customer_id=${encodeURIComponent(id)}`);
     return result.data?.[0]||null;
   },
-  async appointmentData(){
+  async customerPageDetail(id){
+    const params=new URLSearchParams({customer_id:String(id),view:"customer_page_detail"});
+    const result=await requestBackend(`/customer/customer-info?${params}`);
+    return result.data?.[0]||null;
+  },
+  async appointmentData(startDate,endDate){
     const userID=store.get("user_id");
     console.log(userID)
     const result=await requestBackend(`/appointments${userID?`?user_id=${encodeURIComponent(userID)}`:""}`);
+    // const params=new URLSearchParams({start_date:startDate,end_date:endDate});
+    // if(userID)params.set("user_id",userID);
+    // const [result,customerList,packageList]=await Promise.all([
+    //   requestBackend(`/appointments?${params}`),
+    //   loadAppointmentCustomerOptions(),
+    //   loadAppointmentPackageOptions()
+    // ]);
     return {
       appointments:(result.data||[]).map(appointment=>({
         ...appointment,
         id:appointment.appointment_id,
         reports:[]
       })),
-      customers:[],
-      packages:[]
+      customers:customerList,
+      packages:packageList
     };
   },
   async appointmentRecord(id,userID=store.get("user_id")){
@@ -127,8 +162,10 @@ const api={
     return result.data||null;
   },
   async appointmentPackageOptions(){
-    const result=await requestBackend("/appointments?package_options=true");
-    return result.data||[];
+    return loadAppointmentPackageOptions();
+  },
+  async appointmentCustomerOptions(){
+    return loadAppointmentCustomerOptions();
   },
   async saveAppointment(appointment){
     const payload={
@@ -255,6 +292,12 @@ const api={
     if(userID)params.set("user_id",String(userID));
     const query=params.toString()?`?${params}`:"";
     const result=await requestBackend(`/reports${query}`);
+    return result.data||[];
+  },
+  async appointmentReports(appointmentID,userID=store.get("user_id")){
+    const params=new URLSearchParams({appointment_id:String(appointmentID),reports_only:"true"});
+    if(userID)params.set("user_id",String(userID));
+    const result=await requestBackend(`/reports?${params}`);
     return result.data||[];
   },
   async saveReport(report){

@@ -2,7 +2,7 @@
   const list=(await api.insuranceRecords(null,true)).filter(i=>i.status!=="Edited");
   const rows=list.map(i=>{
     const customer=i.customer||{};
-    const name=i.customer_name||customer.customer_name||"-";
+    const name=customer.customer_name||"-";
     return `<article class="card row insurance-card ${openId===i.insurance_id?"open":""}" data-insurance-id="${i.insurance_id}">
       <div class="row-head insurance-row-head" onclick="toggleInsurance(${i.insurance_id})" aria-expanded="${openId===i.insurance_id}">
         <div><b>#${i.insurance_id}</b></div><div class="insurance-customer">${esc(name)}</div><div class="muted">${fmt(i.sign_date)}</div>

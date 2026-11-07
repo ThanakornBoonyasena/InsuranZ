@@ -11,7 +11,9 @@ function localDateKey(value){const date=new Date(value);return iso(date.getFullY
 function localTime(value){return new Date(value).toLocaleTimeString("en-GB",{hour:"2-digit",minute:"2-digit"})}
 function calMove(n){calM+=n;if(calM<0){calM=11;calY--}if(calM>11){calM=0;calY++}render()}
 async function appointmentPage(){
-  const data=await api.appointmentData();
+  const startDate=new Date(calY,calM,1).toISOString();
+  const endDate=new Date(calY,calM+1,1).toISOString();
+  const data=await api.appointmentData(startDate,endDate);
   appointments=data.appointments;
   customers=data.customers;
   packageNames=data.packages;
@@ -34,11 +36,10 @@ async function apptForm(id,day){
   if(!id&&day&&day<todayKey()){showToast("Appointments cannot be created on past dates.");return}
   try{
     const userID=store.get("user_id");
-    const [customerOptions,packageOptions,record,relatedReports]=await Promise.all([
-      api.customerRecords(false,true),
+    const [customerOptions,packageOptions,record]=await Promise.all([
+      api.appointmentCustomerOptions(),
       api.appointmentPackageOptions(),
-      id?api.appointmentRecord(id,userID):Promise.resolve(null),
-      id?api.reports(false,id,userID):Promise.resolve([])
+      id?api.appointmentRecord(id,userID):Promise.resolve(null)
     ]);
     customers=customerOptions;
     packageNames=packageOptions;
@@ -46,8 +47,12 @@ async function apptForm(id,day){
     if(id&&!a)throw new Error("Appointment not found");
     ap=a?jc(a):{id:null,customer_id:customers[0]?.customer_id||"",customer_name:customers[0]?.customer_name||"",sell_case_id:null,user_id:Number(userID),appointment_date:day+"T09:00",location:"",packages:[],reports:[]};
     if(a){
-      const related=relatedReports.find(item=>Number(item.appointment_id)===Number(a.id));
-      ap.reports=(related?.reports||[]).map(report=>({...report,date:report.create_timestamp,report_note:report.content}));
+      try{
+        const reports=await api.appointmentReports(a.id,userID);
+        ap.reports=reports.map(report=>({...report,date:report.create_timestamp,report_note:report.content}));
+      }catch(error){
+        showToast(error.message||"Unable to load appointment reports");
+      }
     }
     apSaved=JSON.stringify(ap);drawAppt();$("#overlay").classList.add("show");
   }catch(error){showToast(error.message||"Unable to load appointment details")}
@@ -117,8 +122,7 @@ async function saveRep(){
     const saved=result.data;
     let appointmentReports=[];
     try{
-      const reports=await api.reports(false,ap.id,store.get("user_id"));
-      appointmentReports=reports.find(item=>Number(item.appointment_id)===Number(ap.id))?.reports||[];
+      appointmentReports=await api.appointmentReports(ap.id,store.get("user_id"));
     }catch{}
     ap.reports=appointmentReports.length?appointmentReports.map(report=>({
       ...report,date:report.create_timestamp,report_note:report.content

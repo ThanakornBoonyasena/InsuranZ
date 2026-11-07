@@ -42,6 +42,7 @@ window.addEventListener("message",event=>{
   }
 });
 async function refreshNotificationList(){
+  if(document.visibilityState!=="visible")return;
   try{
     const list=await api.notifications();
     publishNotifications(list);
@@ -51,4 +52,9 @@ async function refreshNotificationList(){
 }
 refreshNotificationList();
 if(window.__notificationListPollTimer)clearInterval(window.__notificationListPollTimer);
-window.__notificationListPollTimer=setInterval(refreshNotificationList,30000);
+if(window.__notificationListVisibilityHandler)document.removeEventListener("visibilitychange",window.__notificationListVisibilityHandler);
+window.__notificationListVisibilityHandler=()=>{
+  if(document.visibilityState==="visible")refreshNotificationList();
+};
+document.addEventListener("visibilitychange",window.__notificationListVisibilityHandler);
+window.__notificationListPollTimer=setInterval(refreshNotificationList,60000);
