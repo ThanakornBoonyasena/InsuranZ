@@ -138,14 +138,14 @@ const api={
   async appointmentData(startDate,endDate){
     const userID=store.get("user_id");
     console.log(userID)
-    const result=await requestBackend(`/appointments${userID?`?user_id=${encodeURIComponent(userID)}`:""}`);
-    // const params=new URLSearchParams({start_date:startDate,end_date:endDate});
-    // if(userID)params.set("user_id",userID);
-    // const [result,customerList,packageList]=await Promise.all([
-    //   requestBackend(`/appointments?${params}`),
-    //   loadAppointmentCustomerOptions(),
-    //   loadAppointmentPackageOptions()
-    // ]);
+    // const result=await requestBackend(`/appointments${userID?`?user_id=${encodeURIComponent(userID)}`:""}`);
+    const params=new URLSearchParams({start_date:startDate,end_date:endDate});
+    if(userID)params.set("user_id",userID);
+    const [result,customerList,packageList]=await Promise.all([
+      requestBackend(`/appointments?${params}`),
+      loadAppointmentCustomerOptions(),
+      loadAppointmentPackageOptions()
+    ]);
     return {
       appointments:(result.data||[]).map(appointment=>({
         ...appointment,
