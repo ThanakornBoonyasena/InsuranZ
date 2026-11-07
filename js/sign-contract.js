@@ -22,6 +22,14 @@ function calcContract(pkgs,claims){
   });
   return {items,claim:items.reduce((total,item)=>total+item.claim,0)};
 }
+const MAX_SIGNED_INTEGER=2147483647n;
+function integerInputError(value){
+  const text=String(value??"").trim();
+  if(!/^-?\d+$/.test(text))return "Enter a whole number.";
+  if(text.startsWith("-"))return "Negative values are not allowed.";
+  if(BigInt(text)>MAX_SIGNED_INTEGER)return "Value is too large (maximum 2,147,483,647).";
+  return "";
+}
 
 async function signContractPage(){
   const userID=currentBrokerUserID();
@@ -101,12 +109,12 @@ function formHTML(){
       ${CC.customers.map(c=>`<option value="${esc(String(c.customer_id))}" ${String(c.customer_id)===String(cf.customerId)?"selected":""}>${esc(c.customer_name)}</option>`).join("")}
     </select></div>
   <div class="sec"><h2>2. Guarantor information</h2><div class="g2">
-    ${gf.map(([k,l])=>`<div><label>${l}</label><input ${k==="age"?'inputmode="numeric"':""} value="${esc(cf.g[k])}" oninput="${k==="age"?"this.value=this.value.replace(/[^0-9]/g,'');":""}cf.g.${k}=this.value"></div>`).join("")}
+    ${gf.map(([k,l])=>`<div><label>${l}</label><input ${k==="age"?'inputmode="numeric"':""} value="${esc(cf.g[k])}" oninput="cf.g.${k}=this.value"></div>`).join("")}
   </div></div>
   <div class="sec"><h2>3. Packages</h2>
     ${CC.packages.map(p=>{const on=cf.pkgIds.includes(p.package_id);return `<div class="pkg">
       <label class="chk"><input type="checkbox" ${on?"checked":""} onchange="togglePkg(${p.package_id},this.checked)">${esc(p.package_name)}</label>
-      ${on?`<input class="pkgsum" inputmode="numeric" placeholder="Claim (฿)" value="${esc(cf.claims[p.package_id]||"")}" oninput="this.value=this.value.replace(/[^0-9]/g,'');cf.claims[${p.package_id}]=this.value">`:""}
+      ${on?`<input class="pkgsum" inputmode="numeric" placeholder="Claim (฿)" value="${esc(cf.claims[p.package_id]||"")}" oninput="cf.claims[${p.package_id}]=this.value">`:""}
     </div>`}).join("")}
   </div>
   <p class="s-bad" id="cerr"></p>
@@ -120,10 +128,28 @@ function togglePkg(id,on){
 
 async function contractNext(){
   const miss=[];
+  const invalid=[];
   if(!String(cf.customerId??"").trim())miss.push("customer");
   for(const k of ["name","age","job","address","relation"])if(!String(cf.g[k]).trim())miss.push("guarantor "+k);
+  else if(k==="age"){
+    const error=integerInputError(cf.g.age);
+    if(error)invalid.push(`Guarantor age: ${error}`);
+  }
   if(!cf.pkgIds.length)miss.push("a package");
-  for(const p of CC.packages)if(cf.pkgIds.includes(p.package_id)&&!(+cf.claims[p.package_id]>0))miss.push("Claim for "+p.package_name);
+  for(const p of CC.packages)if(cf.pkgIds.includes(p.package_id)){
+    const claim=cf.claims[p.package_id];
+    if(String(claim??"").trim()){
+      const error=integerInputError(claim);
+      if(error)invalid.push(`Claim for ${p.package_name}: ${error}`);
+    }
+    if(!(+claim>0))miss.push("Claim for "+p.package_name);
+  }
+  if(invalid.length){
+    const error=$("#cerr");
+    error.textContent=invalid.join(" ");
+    error.scrollIntoView({block:"nearest",behavior:"smooth"});
+    return;
+  }
   if(miss.length){
     const error=$("#cerr");
     error.textContent="Please complete: "+miss.join(", ")+".";
