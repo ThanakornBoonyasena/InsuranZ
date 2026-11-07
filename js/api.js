@@ -198,8 +198,8 @@ const api={
   async addCustomers(customers){
     return requestBackend("/customer/customer-info/add",{method:"POST",body:JSON.stringify({data:customers})});
   },
-  async approveInsurance(id){return requestBackend("/insurance//approval-decision",{method:"POST",body:JSON.stringify({insurance_id:id,insurance_condition:"ACCEPT"})})},
-  async denyInsurance(id){console.log("denyInsurance called");return requestBackend("/insurance//approval-decision",{method:"POST",body:JSON.stringify({insurance_id:id,insurance_condition:"REJECT"})})},
+  async approveInsurance(id){return requestBackend("/insurance/approval-decision",{method:"POST",body:JSON.stringify({insurance_id:id,insurance_condition:"ACCEPT"})})},
+  async denyInsurance(id){console.log("denyInsurance called");return requestBackend("/insurance/approval-decision",{method:"POST",body:JSON.stringify({insurance_id:id,insurance_condition:"REJECT"})})},
   // async denyInsurance(id){return requestBackend("/insurance/deny",{method:"POST",body:JSON.stringify({insurance_id:id})})},
   async sendInsurance(id){return requestBackend("/insurance/send",{method:"POST",body:JSON.stringify({insurance_id:Number(id)})})},
   async editInsurance(id,detail){
