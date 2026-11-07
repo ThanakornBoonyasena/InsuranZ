@@ -109,6 +109,7 @@ const api={
   },
   async appointmentData(){
     const userID=store.get("user_id");
+    console.log(userID)
     const result=await requestBackend(`/appointments${userID?`?user_id=${encodeURIComponent(userID)}`:""}`);
     return {
       appointments:(result.data||[]).map(appointment=>({
@@ -160,8 +161,9 @@ const api={
   async addCustomers(customers){
     return requestBackend("/customer/customer-info/add",{method:"POST",body:JSON.stringify({data:customers})});
   },
-  async approveInsurance(id){return requestBackend("/insurance/approve",{method:"POST",body:JSON.stringify({insurance_id:id,insurance_condition:"ACCEPT"})})},
-  async denyInsurance(id){return requestBackend("/insurance/deny",{method:"POST",body:JSON.stringify({insurance_id:id})})},
+  async approveInsurance(id){return requestBackend("/insurance//approval-decision",{method:"POST",body:JSON.stringify({insurance_id:id,insurance_condition:"ACCEPT"})})},
+  async denyInsurance(id){console.log("denyInsurance called");return requestBackend("/insurance//approval-decision",{method:"POST",body:JSON.stringify({insurance_id:id,insurance_condition:"REJECT"})})},
+  // async denyInsurance(id){return requestBackend("/insurance/deny",{method:"POST",body:JSON.stringify({insurance_id:id})})},
   async sendInsurance(id){return requestBackend("/insurance/send",{method:"POST",body:JSON.stringify({insurance_id:Number(id)})})},
   async editInsurance(id,detail){
     return requestBackend("/insurance/edit",{method:"POST",body:JSON.stringify({insurance_id:id,additional_detail:detail})});
