@@ -104,6 +104,11 @@ const api={
     const result=await requestBackend(`/insurance/insurance-info?${params}`);
     return result.data?.[0]||null;
   },
+  async insuranceEditDetail(id){
+    const params=new URLSearchParams({insurance_id:String(id),view:"edit"});
+    const result=await requestBackend(`/insurance/insurance-info?${params}`);
+    return result.data?.additional_detail??"";
+  },
   async customerRecords(summary=false, forAppointmentPage=false, forCustomerPage=false, filters=[], forContractPage=false){
     const params=new URLSearchParams();
     if (summary) params.set("summary", true);

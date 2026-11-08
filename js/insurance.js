@@ -60,10 +60,9 @@ async function sendInsurance(id){
 
 async function editForm(id){
   try{
-    const insurance=await loadInsuranceDetail(id);
-    if(!insurance)throw new Error("Insurance record not found");
+    const additionalDetail=await api.insuranceEditDetail(id);
     $("#modal").innerHTML=`<h1>Edit insurance #${id}</h1>
-      <label>Condition</label><textarea id="f-det" rows="6">${esc(insurance.additional_detail||"")}</textarea>
+      <label>Condition</label><textarea id="f-det" rows="6">${esc(additionalDetail)}</textarea>
       <div class="actions"><button class="btn" onclick="closeModal()">Cancel</button><button class="btn pri" onclick="saveEdit(${id})">Save</button></div>`;
     $("#overlay").classList.add("show");
   }catch(error){
