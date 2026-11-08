@@ -5,6 +5,7 @@ const strT=t=>({cols:t.cols.map(String),rows:t.rows.map(String),cells:t.cells.ma
 const sv=(k,i,j)=>k==="c"?saved.cols[i]:k==="r"?saved.rows[i]:(saved.cells[i]||[])[j];
 const cv=(k,i,j)=>k==="c"?cur.cols[i]:k==="r"?cur.rows[i]:cur.cells[i][j];
 const mod=(k,i,j)=>{const s=sv(k,i,j);return s===undefined?cv(k,i,j)!=="":s!==cv(k,i,j)};
+const decimalInput=value=>{const cleaned=String(value).replace(/[^0-9.]/g,"");const dot=cleaned.indexOf(".");return dot<0?cleaned:cleaned.slice(0,dot+1)+cleaned.slice(dot+1).replace(/\./g,"")};
 const dirty=()=>cur.cols.some((_,j)=>mod("c",j))||cur.rows.some((_,i)=>mod("r",i))||cur.cells.some((r,i)=>r.some((_,j)=>mod("x",i,j)))||cur.rows.length!==saved.rows.length||cur.cols.length!==saved.cols.length;
 function tableHTML(){
   const inp=(k,i,j,ph)=>`<input data-k="${k}" data-i="${i}" data-j="${j??""}" placeholder="${ph}" inputmode="${k==="r"?"numeric":"decimal"}" value="${esc(k==="c"&&cv(k,i,j)!==""?cv(k,i,j)+"%":cv(k,i,j))}" ${k==="c"?'onfocus="colFocus(this)" onblur="colBlur(this)"':""} class="${mod(k,i,j)?"mod":""}" oninput="cellInput(this)">`;
@@ -19,7 +20,7 @@ async function cancelComm(){if(!await confirmDialog("Discard unsaved commission 
 const drawComm=()=>{$("#ctable").innerHTML=tableHTML();$("#cactions").innerHTML=actionsHTML()};
 function cellInput(el){
   const {k,i,j}=el.dataset;
-  el.value=el.value.replace(k==="x"||k==="r"?/[^0-9]/g:/[^0-9.%]/g,"");
+  el.value=k==="r"?el.value.replace(/[^0-9]/g,""):decimalInput(el.value).replace(/%/g,"");
   if(k==="c")cur.cols[i]=el.value.replace(/%/g,"");else if(k==="r")cur.rows[i]=el.value;else cur.cells[i][j]=el.value;
   el.classList.toggle("mod",mod(k,i,j));
   $("#cactions").innerHTML=actionsHTML();
@@ -36,7 +37,9 @@ function setInput(el){
 async function saveSettings(){
   if(!await confirmDialog("Save commission settings?",{title:"Save settings",confirmText:"Save"}))return;
   try{
-    await api.saveSettings(setCur);setSaved=clone(setCur);
+    const result=await api.saveSettings(setCur,setSaved);
+    setSaved={target:String(result.data?.target??setCur.target),period:String(result.data?.period??setCur.period)};
+    setCur=clone(setSaved);
     document.querySelectorAll("#spanel input,#spanel select").forEach(e=>e.classList.remove("mod"));
     $("#sactions").innerHTML="";
     showToast("Commission settings saved.","success");
@@ -48,7 +51,7 @@ function addCol(){cur.cols.push("");cur.cells.forEach(r=>r.push(""));drawComm()}
 function addRow(){cur.rows.push("");cur.cells.push(cur.cols.map(()=>""));drawComm()}
 function removeCol(index){cur.cols.splice(index,1);cur.cells.forEach(row=>row.splice(index,1));drawComm()}
 function removeRow(index){cur.rows.splice(index,1);cur.cells.splice(index,1);drawComm()}
-async function saveComm(){if(!await confirmDialog("Save commission table changes?",{title:"Save commission table",confirmText:"Save"}))return;try{const t=clone(cur);const stored=await api.saveCommission(t);saved=stored?strT(stored):blank();cur=clone(saved);drawComm();showToast("Commission table saved.","success")}catch(error){showToast(error.message||"Unable to save commission table")}}
+async function saveComm(){if(!await confirmDialog("Save commission table changes?",{title:"Save commission table",confirmText:"Save"}))return;try{const t=clone(cur);const stored=await api.saveCommission(t,saved);saved=stored?strT(stored):blank();cur=clone(saved);drawComm();showToast("Commission table saved.","success")}catch(error){showToast(error.message||"Unable to save commission table")}}
 function clearComm(){cur.cols=cur.cols.map(()=>"");cur.rows=cur.rows.map(()=>"");cur.cells=cur.cells.map(r=>r.map(()=>""));drawComm()}
 function resetComm(){cur=blank();drawComm()}
 async function commissionPage(){
