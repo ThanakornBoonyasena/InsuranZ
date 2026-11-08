@@ -72,6 +72,7 @@ async function editForm(id){
 }
 
 async function saveEdit(id){
+  console.log("Yay")
   if(!await confirmDialog(`Save changes to insurance #${id}?`,{title:"Save insurance changes",confirmText:"Save"}))return;
   try{
     await api.editInsurance(id,$("#f-det").value);
